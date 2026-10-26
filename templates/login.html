@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}Login | Driving Validation System{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center align-items-center min-vh-75 my-4">
+    <div class="col-md-6 col-lg-5">
+        <div class="card glass-card border-0 rounded-4 p-4 p-md-5 shadow-lg">
+
+            <!-- Login Header -->
+            <div class="text-center mb-4">
+
+                <!-- 2-Wheeler Icon -->
+                <div class="icon-shape bg-primary-subtle text-primary rounded-circle mx-auto mb-3"
+                     style="width: 70px; height: 70px;">
+                    <i class="fa-solid fa-motorcycle fs-2"></i>
+                </div>
+
+                <h3 class="fw-bold text-white mb-1">DWICHAKRA YANA</h3>
+
+                <h5 class="text-info fw-semibold mt-2 mb-1">
+                    Welcome
+                </h5>
+
+                <p class="text-muted small">
+                    Please log in to start your driving evaluation process.
+                </p>
+
+            </div>
+
+            <!-- Login Form -->
+            <form action="{{ url_for('login') }}" method="POST">
+
+                <!-- User ID / Email -->
+                <div class="mb-3">
+                    <label class="form-label text-light fw-semibold">
+                        User ID / Email ID
+                        <span class="text-danger">*</span>
+                    </label>
+
+                    <div class="input-group">
+                        <span class="input-group-text bg-dark-subtle border-secondary">
+                            <i class="fa-solid fa-envelope"></i>
+                        </span>
+
+                        <input
+                            type="text"
+                            name="email"
+                            class="form-control bg-light border-secondary text-dark"
+                            placeholder="Enter User ID or Email..."
+                            required>
+                    </div>
+                </div>
+
+                <!-- Password -->
+                <div class="mb-3">
+                    <label class="form-label text-light fw-semibold">
+                        Password
+                        <span class="text-danger">*</span>
+                    </label>
+
+                    <div class="input-group">
+                        <span class="input-group-text bg-dark-subtle border-secondary">
+                            <i class="fa-solid fa-lock"></i>
+                        </span>
+
+                        <input
+                            type="password"
+                            name="password"
+                            class="form-control bg-light border-secondary text-dark"
+                            placeholder="Enter Password..."
+                            required>
+                    </div>
+                </div>
+
+                <!-- Forgot Password -->
+                <div class="d-flex justify-content-end mb-4">
+                    <a href="#"
+                       class="small text-info text-decoration-none"
+                       onclick="alert('Forgot Password: For password reset support, please contact your system administrator or re-register a candidate account.')">
+                        Forgot Password?
+                    </a>
+                </div>
+
+                <!-- Login Button -->
+                <button
+                    type="submit"
+                    class="btn btn-primary w-100 btn-lg rounded-pill shadow mb-4">
+
+                    <i class="fa-solid fa-right-to-bracket me-2"></i>
+                    LOGIN
+
+                </button>
+
+            </form>
+
+            <hr class="border-secondary mb-4">
+
+            <!-- New Candidate Section -->
+            <div class="text-center">
+
+                <p class="text-muted small mb-2">
+                    New Candidate?
+                </p>
+
+                <a
+                    href="{{ url_for('signup') }}"
+                    class="btn btn-outline-info rounded-pill px-4 shadow-sm">
+
+                    <i class="fa-solid fa-user-plus me-2"></i>
+                    REGISTER HERE
+
+                </a>
+
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,13 @@
+﻿__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+
+# Personal/candidate data
+static/uploads/
+static/reports/
+*.db
+
+# Local tool metadata
+.sf/

@@ -1,0 +1,332 @@
+{% extends "base.html" %}
+
+{% block title %}Candidate Registration | Driving Skill Validation System{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card glass-card border-0 rounded-4 p-4 shadow-lg">
+            <div class="d-flex align-items-center justify-content-between mb-4 pb-3 border-bottom border-secondary">
+                <div>
+                    <h3 class="fw-bold text-white mb-1">
+                        <i class="fa-solid fa-address-card text-primary me-2"></i> Step 1: Candidate Registration
+                    </h3>
+                    <p class="text-muted mb-0 small">Enter demographics and capture photo. Next step: Face Verification.</p>
+                </div>
+                <span class="badge bg-primary rounded-pill px-3 py-2"><i class="fa-solid fa-user-plus me-1"></i> Step 1 of 3</span>
+            </div>
+
+            <form action="{{ url_for('register') }}" method="POST" enctype="multipart/form-data">
+                <div class="row g-3">
+                    <!-- Candidate Name -->
+                    <div class="col-md-6">
+                        <label class="form-label text-light fw-semibold">Candidate Name <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-dark-subtle border-secondary"><i class="fa-solid fa-user"></i></span>
+                            <input type="text" name="name" class="form-control bg-light border-secondary text-dark" value="{{ session.get('user_name', '') }}" placeholder="e.g. Rajesh Kumar" required>
+                        </div>
+                    </div>
+
+                    <!-- Aadhaar Number -->
+                    <div class="col-md-6">
+                        <label class="form-label text-light fw-semibold">Aadhaar Number <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-dark-subtle border-secondary"><i class="fa-solid fa-fingerprint"></i></span>
+                            <input type="text" name="aadhaar" id="aadhaarInput" class="form-control bg-light border-secondary text-dark" placeholder="12-digit Aadhaar Number" pattern="[0-9]{12}" required>
+                        </div>
+                    </div>
+
+                    <!-- Aadhaar Card Image Upload -->
+                    <div class="col-md-6">
+                        <label class="form-label text-light fw-semibold">Aadhaar Card Image <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-dark-subtle border-secondary"><i class="fa-solid fa-id-card"></i></span>
+                            <input type="file" name="aadhaar_image" id="aadhaarImageInput" class="form-control bg-light border-secondary text-dark" accept="image/jpeg,image/jpg,image/png" required>
+                        </div>
+                        <div id="aadhaarImageErrorAlert" class="alert alert-danger mt-2 d-none py-1 px-2 mb-0" style="font-size: 0.8rem;" role="alert">
+                            <i class="fa-solid fa-triangle-exclamation me-1"></i>
+                            <span id="aadhaarImageErrorText">Aadhaar Card image must be JPG, JPEG, or PNG format and less than 5 MB.</span>
+                        </div>
+                    </div>
+
+                    <!-- Date of Birth -->
+                    <div class="col-md-3">
+                        <label class="form-label text-light fw-semibold">Date of Birth <span class="text-danger">*</span></label>
+                        <input type="date" name="dob" id="dobInput" class="form-control bg-light border-secondary text-dark" max="{{ max_dob }}" required>
+                        <div id="ageErrorAlert" class="alert alert-danger mt-2 d-none py-1 px-2 mb-0" style="font-size: 0.8rem;" role="alert">
+                            <i class="fa-solid fa-triangle-exclamation me-1"></i>
+                            <span id="ageErrorText">You must be at least 18 years old to register.</span>
+                        </div>
+                    </div>
+
+                    <!-- Gender -->
+                    <div class="col-md-3">
+                        <label class="form-label text-light fw-semibold">Gender <span class="text-danger">*</span></label>
+                        <select name="gender" class="form-select bg-light border-secondary text-dark" required>
+                            <option value="">Select Gender</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+
+                    <!-- Mobile Number -->
+                    <div class="col-md-6">
+                        <label class="form-label text-light fw-semibold">Mobile Number <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-dark-subtle border-secondary"><i class="fa-solid fa-phone"></i></span>
+                            <input type="tel" name="mobile" class="form-control bg-light border-secondary text-dark" value="{{ session.get('user_mobile', '') }}" placeholder="10-digit Mobile Number" required>
+                        </div>
+                    </div>
+
+                    <!-- Email ID -->
+                    <div class="col-md-6">
+                        <label class="form-label text-light fw-semibold">Email ID <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-dark-subtle border-secondary"><i class="fa-solid fa-envelope"></i></span>
+                            <input type="email" name="email" class="form-control bg-light border-secondary text-dark" value="{{ session.get('user_email', '') }}" placeholder="name@example.com" required>
+                        </div>
+                    </div>
+
+                    <!-- Address -->
+                    <div class="col-12">
+                        <label class="form-label text-light fw-semibold">Residential Address <span class="text-danger">*</span></label>
+                        <textarea name="address" class="form-control bg-light border-secondary text-dark" rows="2" placeholder="Full residential address..." required></textarea>
+                    </div>
+
+                    <!-- Passport Size Photo Capture & Upload Section -->
+                    <div class="col-12">
+                        <label class="form-label text-light fw-semibold">Passport Size Photo <span class="text-danger">*</span></label>
+                        <div class="card bg-dark-subtle border-secondary p-3">
+                            <div class="row align-items-center">
+                                <div class="col-md-6">
+                                    <label class="form-label text-muted small">Option A: Upload / Take Photo File</label>
+                                    <input type="file" name="photo" id="photoFileInput" class="form-control bg-light border-secondary text-dark" accept="image/*" capture="user">
+                                </div>
+                                <div class="col-md-6 text-center border-start border-secondary">
+                                    <label class="form-label text-muted small">Option B: Capture via Webcam Stream</label><br/>
+                                    <button type="button" class="btn btn-outline-info btn-sm rounded-pill" onclick="openRegistrationWebcam()">
+                                        <i class="fa-solid fa-camera me-1"></i> Open Live Webcam Stream
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Live Camera Modal / Box -->
+                            <div id="webcamRegBox" class="mt-3 d-none text-center">
+                                <video id="regWebcam" width="320" height="240" autoplay playsinline class="rounded border border-primary bg-black"></video>
+                                <canvas id="regCanvas" width="320" height="240" class="d-none"></canvas>
+                                <div class="mt-2">
+                                    <button type="button" class="btn btn-success btn-sm rounded-pill" onclick="captureRegPhoto()">
+                                        <i class="fa-solid fa-aperture me-1"></i> Capture Photo
+                                    </button>
+                                </div>
+                            </div>
+
+                            <input type="hidden" name="captured_photo_data" id="capturedPhotoData">
+
+                            <!-- Preview Box -->
+                            <div id="photoPreviewContainer" class="mt-3 d-none text-center">
+                                <span class="text-muted small">Selected Photo Preview:</span><br/>
+                                <img id="photoPreviewImg" src="" alt="Preview" class="rounded border border-info mt-1" width="120" height="140">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <div class="col-12 text-end mt-4">
+                        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary rounded-pill px-4 me-2">Cancel</a>
+                        <button type="submit" class="btn btn-primary rounded-pill px-5 shadow">
+                            <i class="fa-solid fa-save me-2"></i> Register Candidate
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function openRegistrationWebcam() {
+    const webcamBox = document.getElementById('webcamRegBox');
+    const video = document.getElementById('regWebcam');
+    
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        alert('Webcam stream is restricted on HTTP network IP by browser security. Launching photo capture fallback instead.');
+        document.getElementById('photoFileInput').click();
+        return;
+    }
+    
+    webcamBox.classList.remove('d-none');
+    
+    navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
+        video.srcObject = stream;
+        video.play();
+    }).catch(err => {
+        console.warn('Webcam error:', err);
+        alert('Could not start live webcam feed. Opening photo upload / capture fallback instead.');
+        document.getElementById('photoFileInput').click();
+    });
+}
+
+function captureRegPhoto() {
+    const video = document.getElementById('regWebcam');
+    const canvas = document.getElementById('regCanvas');
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, 320, 240);
+    const dataUrl = canvas.toDataURL('image/jpeg');
+    
+    document.getElementById('capturedPhotoData').value = dataUrl;
+    document.getElementById('photoPreviewImg').src = dataUrl;
+    document.getElementById('photoPreviewContainer').classList.remove('d-none');
+    
+    // Stop camera stream
+    if (video.srcObject) {
+        video.srcObject.getTracks().forEach(track => track.stop());
+    }
+    document.getElementById('webcamRegBox').classList.add('d-none');
+}
+
+document.getElementById('photoFileInput').addEventListener('change', function(e) {
+    if (e.target.files && e.target.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+            document.getElementById('photoPreviewImg').src = evt.target.result;
+            document.getElementById('photoPreviewContainer').classList.remove('d-none');
+        };
+        reader.readAsDataURL(e.target.files[0]);
+    }
+});
+
+// Function to compute maximum selectable DOB (YYYY-MM-DD) for candidate age >= 18 today
+function getMaxDobString() {
+    const today = new Date();
+    const year = today.getFullYear() - 18;
+    const month = today.getMonth() + 1;
+    let day = today.getDate();
+
+    // Leap-year handling: if today is Feb 29 and (year - 18) is not a leap year, max is Feb 28
+    if (month === 2 && day === 29) {
+        const isLeapYear = (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+        if (!isLeapYear) {
+            day = 28;
+        }
+    }
+
+    const yyyy = String(year);
+    const mm = String(month).padStart(2, '0');
+    const dd = String(day).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+}
+
+// Age Eligibility Validation (Strictly 18 years or older)
+function calculateAgeFromDOB(dobString) {
+    if (!dobString) return 0;
+    const parts = dobString.split('-');
+    if (parts.length !== 3) return 0;
+    const birthYear = parseInt(parts[0], 10);
+    const birthMonth = parseInt(parts[1], 10) - 1;
+    const birthDay = parseInt(parts[2], 10);
+    
+    const today = new Date();
+    let age = today.getFullYear() - birthYear;
+    const monthDiff = today.getMonth() - birthMonth;
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDay)) {
+        age--;
+    }
+    return age;
+}
+
+function validateCandidateAge() {
+    const dobInput = document.getElementById('dobInput');
+    const ageAlert = document.getElementById('ageErrorAlert');
+    if (!dobInput || !dobInput.value) {
+        if (ageAlert) ageAlert.classList.add('d-none');
+        if (dobInput) dobInput.setCustomValidity('');
+        return true;
+    }
+    const age = calculateAgeFromDOB(dobInput.value);
+    if (age < 18) {
+        if (ageAlert) ageAlert.classList.remove('d-none');
+        dobInput.setCustomValidity('You must be at least 18 years old to register.');
+        return false;
+    } else {
+        if (ageAlert) ageAlert.classList.add('d-none');
+        dobInput.setCustomValidity('');
+        return true;
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const dobInput = document.getElementById('dobInput');
+    if (dobInput) {
+        const maxDob = getMaxDobString();
+        dobInput.max = maxDob;
+        dobInput.addEventListener('change', validateCandidateAge);
+        dobInput.addEventListener('input', validateCandidateAge);
+    }
+    
+    // Aadhaar Card Image Validation (File size max 5 MB, JPG/JPEG/PNG)
+    const aadhaarImageInput = document.getElementById('aadhaarImageInput');
+    if (aadhaarImageInput) {
+        aadhaarImageInput.addEventListener('change', function(e) {
+            const errorAlert = document.getElementById('aadhaarImageErrorAlert');
+            const errorText = document.getElementById('aadhaarImageErrorText');
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const validExtensions = ['.jpg', '.jpeg', '.png'];
+            const fileName = file.name.toLowerCase();
+            const isValidExt = validExtensions.some(ext => fileName.endsWith(ext));
+            const maxSize = 5 * 1024 * 1024; // 5 MB
+
+            if (!isValidExt) {
+                if (errorText) errorText.innerText = 'Invalid format. Only JPG, JPEG, and PNG files are allowed.';
+                if (errorAlert) errorAlert.classList.remove('d-none');
+                e.target.value = '';
+                return;
+            }
+
+            if (file.size > maxSize) {
+                if (errorText) errorText.innerText = 'File size exceeds 5 MB. Please select a smaller image file.';
+                if (errorAlert) errorAlert.classList.remove('d-none');
+                e.target.value = '';
+                return;
+            }
+
+            if (errorAlert) errorAlert.classList.add('d-none');
+        });
+    }
+
+    const form = dobInput ? dobInput.closest('form') : null;
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const currentDob = dobInput ? dobInput.value : '';
+            const age = calculateAgeFromDOB(currentDob);
+            if (!currentDob || age < 18) {
+                e.preventDefault();
+                e.stopPropagation();
+                validateCandidateAge();
+                alert('You must be at least 18 years old to register.');
+                if (dobInput) dobInput.focus();
+                return false;
+            }
+
+            const aadhaarImg = document.getElementById('aadhaarImageInput');
+            if (aadhaarImg && aadhaarImg.files.length > 0) {
+                const file = aadhaarImg.files[0];
+                const maxSize = 5 * 1024 * 1024;
+                if (file.size > maxSize) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    alert('Aadhaar Card image file size exceeds 5 MB.');
+                    if (aadhaarImg) aadhaarImg.focus();
+                    return false;
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

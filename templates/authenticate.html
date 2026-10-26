@@ -1,0 +1,387 @@
+{% extends "base.html" %}
+
+{% block title %}Candidate Face Verification | Driving Skill Validation System{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center g-4">
+    <div class="col-lg-9">
+        <div class="card glass-card border-0 rounded-4 p-4 shadow-lg">
+            <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom border-secondary">
+                <div>
+                    <h3 class="fw-bold text-white mb-1">
+                        <i class="fa-solid fa-camera-retro text-primary me-2"></i>  Step 2: Candidate Face Verification
+                    </h3>
+                    <p class="text-muted mb-0 small">Verify candidate live facial features. Next step: Driving Test Video Verification.</p>
+                </div>
+                <span class="badge bg-info rounded-pill px-3 py-2 text-dark"><i class="fa-solid fa-user-check me-1"></i> Step 2 of 3</span>
+            </div>
+
+            <!-- Chrome / Browser Security Instructions for HTTP Network IP -->
+            <div id="httpSecurityBanner" class="alert alert-warning border-warning rounded-4 p-3 mb-4 d-none shadow-sm">
+                <div class="d-flex align-items-start gap-3">
+                    <i class="fa-solid fa-camera-rotate text-warning fs-3 mt-1"></i>
+                    <div>
+                        <h6 class="fw-bold text-dark mb-1">How to Enable Live Webcam Access on Network IP</h6>
+                        <p class="mb-2 small text-secondary">
+                            Browsers block direct webcam access over non-HTTPS network IPs (<strong><span id="currentHostIp"></span></strong>). To enable webcam directly in Chrome/Edge:
+                        </p>
+                        <ol class="small text-dark mb-2 ps-3" style="line-height: 1.8;">
+                            <li>Open a new browser tab and navigate to: <code class="text-warning bg-dark px-2 py-1 rounded font-monospace">chrome://flags/#unsafely-treat-insecure-origin-as-secure</code></li>
+                            <li>Add <strong><span id="currentOriginUrl"></span></strong> into the text area, change dropdown to <strong>Enabled</strong>, and click <strong>Relaunch</strong>.</li>
+                            <li>Or open the app on the host machine at <a id="localhostSwitchLink" href="http://localhost:5000/authenticate" class="text-primary fw-bold text-decoration-underline">http://localhost:5000/authenticate</a>.</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Candidate Selection Dropdown -->
+            <div class="mb-4">
+                <label class="form-label text-dark fw-semibold fs-5">Select Registered Candidate <span class="text-danger">*</span></label>
+                <select id="candidateSelect" class="form-select form-select-lg bg-light border-secondary text-dark" onchange="onCandidateSelect()">
+                    <option value="">-- Choose Candidate --</option>
+                    {% for c in candidates %}
+                        <option value="{{ c.candidate_id }}" 
+                                data-photo="{{ url_for('static', filename=c.photo_path.replace('static/', '')) }}" 
+                                data-name="{{ c.name }}"
+                                {% if selected_candidate_id == c.candidate_id %}selected{% endif %}>
+                            {{ c.name }} (ID: {{ c.candidate_id }} | Aadhaar: {{ c.aadhaar }})
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Side-by-side Registered Photo vs Live Webcam Stream -->
+            <div class="row g-3 align-items-center mb-4">
+                <!-- Registered Candidate Photo -->
+                <div class="col-md-5 text-center">
+                    <div class="card bg-dark-subtle border-secondary p-3 rounded-4">
+                        <h6 class="fw-bold text-muted mb-2"><i class="fa-solid fa-id-badge text-info me-1"></i> Registered Candidate Photo</h6>
+                        <img id="registeredPhotoPreview" src="https://via.placeholder.com/170x210?text=Select+Candidate" 
+                             alt="Registered Candidate" class="rounded border border-secondary mx-auto object-fit-cover shadow-sm" 
+                             style="width: 180px; height: 210px;">
+                    </div>
+                </div>
+
+                <!-- Match Icon Divider -->
+                <div class="col-md-2 text-center">
+                    <div class="my-2">
+                        <i class="fa-solid fa-right-left text-primary fs-2"></i>
+                        <div class="small text-muted fw-bold mt-1">VS</div>
+                    </div>
+                </div>
+
+                <!-- Live Webcam Stream Box -->
+                <div class="col-md-5 text-center">
+                    <div class="card bg-dark-subtle border-secondary p-3 rounded-4">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <h6 class="fw-bold text-muted mb-0"><i class="fa-solid fa-video text-danger me-1"></i> Live Webcam Feed</h6>
+                            <span id="cameraStatusBadge" class="badge bg-secondary rounded-pill px-2 py-1 small">Camera Off</span>
+                        </div>
+                        
+                        <div id="webcamPreviewContainer" class="position-relative d-inline-block bg-black rounded border border-primary p-1" style="width: 230px; height: 210px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                            <video id="authWebcam" width="220" height="200" autoplay playsinline class="rounded object-fit-cover bg-black d-none"></video>
+                            <img id="uploadedPhotoDisplay" src="" alt="Captured Photo" class="rounded object-fit-cover d-none" style="width: 220px; height: 200px;">
+                            <canvas id="authCanvas" width="320" height="320" class="d-none"></canvas>
+                            
+                            <!-- Default / Fallback Screen Container inside camera frame -->
+                            <div id="webcamPlaceholder" class="d-flex flex-column align-items-center justify-content-center text-center p-2 text-muted" style="width: 100%; height: 100%;">
+                                <i id="webcamPlaceholderIcon" class="fa-solid fa-camera fs-1 mb-2 text-primary"></i>
+                                <small id="webcamPlaceholderText" class="text-light small">Click "Start Camera" below</small>
+                            </div>
+                        </div>
+
+                        <div class="mt-3 d-flex justify-content-center gap-2 flex-wrap">
+                            <button type="button" id="startCamBtn" class="btn btn-primary btn-sm rounded-pill px-3 shadow-sm" onclick="startWebcam()">
+                                <i class="fa-solid fa-camera me-1"></i> Start Camera
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3 shadow-sm" onclick="triggerPhotoUpload()">
+                                <i class="fa-solid fa-file-image me-1"></i> Take / Upload Photo
+                            </button>
+                        </div>
+
+                        <div id="webcamBlockedNotice" class="alert alert-warning p-2 small mt-2 d-none rounded-3 text-start">
+                            <i class="fa-solid fa-triangle-exclamation text-warning me-1"></i> <strong>Webcam Unavailable:</strong> Browser blocked camera access over HTTP network IP. Follow setup above or use photo fallback.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hidden File Input for Optional Photo Upload -->
+            <input type="file" id="snapshotFileInput" class="d-none" accept="image/*" capture="user" onchange="onSnapshotFileSelected(event)">
+
+            <!-- Verification Action & Status Banner -->
+            <div class="text-center">
+                <button type="button" id="verifyBtn" class="btn btn-primary btn-lg rounded-pill px-5 shadow mb-3" onclick="performFaceAuth()" disabled>
+                    <i class="fa-solid fa-shield-cat me-2"></i> Capture & Verify Identity
+                </button>
+
+                <!-- Dynamic Auth Status Alert -->
+                <div id="authStatusAlert" class="alert d-none rounded-3 p-3 text-start shadow-sm border-0">
+                    <div class="d-flex align-items-center gap-3">
+                        <i id="authStatusIcon" class="fa-solid fs-2"></i>
+                        <div>
+                            <h5 id="authStatusTitle" class="fw-bold mb-1"></h5>
+                            <p id="authStatusText" class="mb-0 small"></p>
+                        </div>
+                    </div>
+                    
+                    <div id="proceedActionBtn" class="mt-3 text-end d-none">
+                        <a id="proceedToVideoLink" href="{{ url_for('analysis') }}" class="btn btn-success rounded-pill px-4 fw-bold">
+                            Proceed to Upload Driving Test Video <i class="fa-solid fa-arrow-right ms-2"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let streamActive = false;
+let uploadedDataUrl = null;
+let useFallbackUpload = false;
+let activeMediaStream = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    const isHttp = window.location.protocol === 'http:';
+    const isRemoteIp = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+    
+    document.getElementById('currentHostIp').innerText = window.location.host;
+    document.getElementById('currentOriginUrl').innerText = window.location.origin;
+
+    if (isHttp && isRemoteIp) {
+        document.getElementById('httpSecurityBanner').classList.remove('d-none');
+    }
+    
+    // Auto-attempt webcam start on load
+    startWebcam();
+    
+    if (document.getElementById('candidateSelect').value) {
+        onCandidateSelect();
+    }
+});
+
+function onCandidateSelect() {
+    const select = document.getElementById('candidateSelect');
+    const selectedOpt = select.options[select.selectedIndex];
+    const verifyBtn = document.getElementById('verifyBtn');
+    
+    if (select.value) {
+        const photoUrl = selectedOpt.getAttribute('data-photo');
+        document.getElementById('registeredPhotoPreview').src = photoUrl;
+        verifyBtn.disabled = false;
+        
+        // Update localhost link query param
+        const locLink = document.getElementById('localhostSwitchLink');
+        if (locLink) {
+            locLink.href = `http://localhost:5000/authenticate?candidate_id=${select.value}`;
+        }
+
+        if (!streamActive && !useFallbackUpload) {
+            startWebcam();
+        }
+    } else {
+        document.getElementById('registeredPhotoPreview').src = 'https://via.placeholder.com/170x210?text=Select+Candidate';
+        verifyBtn.disabled = true;
+    }
+}
+
+function stopWebcamStream() {
+    if (activeMediaStream) {
+        activeMediaStream.getTracks().forEach(track => track.stop());
+        activeMediaStream = null;
+    }
+    streamActive = false;
+}
+
+function startWebcam() {
+    stopWebcamStream();
+
+    const video = document.getElementById('authWebcam');
+    const photoDisplay = document.getElementById('uploadedPhotoDisplay');
+    const placeholder = document.getElementById('webcamPlaceholder');
+    const placeholderIcon = document.getElementById('webcamPlaceholderIcon');
+    const placeholderText = document.getElementById('webcamPlaceholderText');
+    const badge = document.getElementById('cameraStatusBadge');
+    const blockedNotice = document.getElementById('webcamBlockedNotice');
+    
+    blockedNotice.classList.add('d-none');
+    photoDisplay.classList.add('d-none');
+    
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        streamActive = false;
+        video.classList.add('d-none');
+        placeholder.classList.remove('d-none');
+        placeholderIcon.className = 'fa-solid fa-video-slash fs-1 mb-2 text-warning';
+        placeholderText.innerText = 'Camera Blocked on HTTP IP';
+        badge.className = 'badge bg-warning text-dark rounded-pill px-2 py-1 small';
+        badge.innerText = 'HTTP IP Camera Restriction';
+        blockedNotice.classList.remove('d-none');
+        document.getElementById('httpSecurityBanner').classList.remove('d-none');
+        return;
+    }
+    
+    badge.className = 'badge bg-warning text-dark rounded-pill px-2 py-1 small';
+    badge.innerText = 'Connecting Camera...';
+    placeholderIcon.className = 'fa-solid fa-spinner fa-spin fs-1 mb-2 text-primary';
+    placeholderText.innerText = 'Requesting camera stream...';
+
+    // Flexible constraints to work on all webcams & laptops
+    const tryConstraints = [
+        { video: true },
+        { video: { facingMode: 'user' } },
+        { video: { width: { ideal: 640 }, height: { ideal: 480 } } }
+    ];
+
+    async function attemptGetUserMedia(index) {
+        if (index >= tryConstraints.length) {
+            throw new Error('Could not initialize camera with available media constraints.');
+        }
+        try {
+            return await navigator.mediaDevices.getUserMedia(tryConstraints[index]);
+        } catch (err) {
+            return attemptGetUserMedia(index + 1);
+        }
+    }
+
+    attemptGetUserMedia(0).then(stream => {
+        activeMediaStream = stream;
+        video.srcObject = stream;
+        video.onloadedmetadata = () => {
+            video.play();
+        };
+        video.classList.remove('d-none');
+        placeholder.classList.add('d-none');
+        streamActive = true;
+        useFallbackUpload = false;
+        badge.className = 'badge bg-success rounded-pill px-2 py-1 small';
+        badge.innerText = 'Camera Active';
+    }).catch(err => {
+        console.warn('Webcam initialization failed:', err);
+        streamActive = false;
+        video.classList.add('d-none');
+        placeholder.classList.remove('d-none');
+        placeholderIcon.className = 'fa-solid fa-triangle-exclamation fs-1 mb-2 text-warning';
+        placeholderText.innerText = 'Webcam unavailable or blocked';
+        badge.className = 'badge bg-danger rounded-pill px-2 py-1 small';
+        badge.innerText = 'Camera Blocked';
+        blockedNotice.classList.remove('d-none');
+        document.getElementById('httpSecurityBanner').classList.remove('d-none');
+    });
+}
+
+function triggerPhotoUpload() {
+    document.getElementById('snapshotFileInput').click();
+}
+
+function toggleUploadFallback() {
+    useFallbackUpload = true;
+    const container = document.getElementById('uploadFallbackContainer');
+    if (container) container.scrollIntoView({ behavior: 'smooth' });
+}
+
+function onSnapshotFileSelected(event) {
+    const file = event.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            uploadedDataUrl = e.target.result;
+            useFallbackUpload = true;
+            stopWebcamStream();
+
+            // Display selected photo in webcam box preview
+            document.getElementById('authWebcam').classList.add('d-none');
+            document.getElementById('webcamPlaceholder').classList.add('d-none');
+            
+            const photoDisplay = document.getElementById('uploadedPhotoDisplay');
+            photoDisplay.src = uploadedDataUrl;
+            photoDisplay.classList.remove('d-none');
+
+            const snapPreview = document.getElementById('snapshotFilePreview');
+            if (snapPreview) snapPreview.src = uploadedDataUrl;
+            
+            const badge = document.getElementById('cameraStatusBadge');
+            badge.className = 'badge bg-info text-dark rounded-pill px-2 py-1 small';
+            badge.innerText = 'Photo File Selected';
+        };
+        reader.readAsDataURL(file);
+    }
+}
+
+async function performFaceAuth() {
+    const candidateId = document.getElementById('candidateSelect').value;
+    if (!candidateId) {
+        alert('Please select a candidate first.');
+        return;
+    }
+
+    let targetImageDataUrl = null;
+
+    if (streamActive) {
+        const video = document.getElementById('authWebcam');
+        const canvas = document.getElementById('authCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = video.videoWidth || 320;
+        canvas.height = video.videoHeight || 320;
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        targetImageDataUrl = canvas.toDataURL('image/jpeg');
+    } else if (uploadedDataUrl) {
+        targetImageDataUrl = uploadedDataUrl;
+    } else {
+        triggerPhotoUpload();
+        const alertBox = document.getElementById('authStatusAlert');
+        alertBox.className = 'alert alert-warning rounded-3 p-3 text-start shadow-sm border-0 d-block';
+        document.getElementById('authStatusIcon').className = 'fa-solid fa-camera text-warning fs-2';
+        document.getElementById('authStatusTitle').innerText = 'No Photo or Webcam Active';
+        document.getElementById('authStatusText').innerText = 'Please click "Start Camera" or select/take a live photo file to verify candidate identity.';
+        return;
+    }
+
+    const alertBox = document.getElementById('authStatusAlert');
+    alertBox.className = 'alert alert-info rounded-3 p-3 text-start shadow-sm border-0 d-block';
+    document.getElementById('authStatusIcon').className = 'fa-solid fa-spinner fa-spin text-info fs-2';
+    document.getElementById('authStatusTitle').innerText = 'Extracting FaceNet Vectors...';
+    document.getElementById('authStatusText').innerText = 'Comparing facial features against registered photo...';
+    document.getElementById('proceedActionBtn').classList.add('d-none');
+    document.getElementById('verifyBtn').disabled = true;
+
+    try {
+        const response = await fetch('/api/authenticate_face', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                candidate_id: candidateId,
+                image_data: targetImageDataUrl
+            })
+        });
+
+        const data = await response.json();
+        document.getElementById('verifyBtn').disabled = false;
+
+        if (response.ok && data.auth_success) {
+            alertBox.className = 'alert alert-success rounded-3 p-3 text-start shadow-sm border-0 d-block';
+            document.getElementById('authStatusIcon').className = 'fa-solid fa-circle-check text-success fs-2';
+            document.getElementById('authStatusTitle').innerText = 'Candidate Authenticated Successfully!';
+            document.getElementById('authStatusText').innerHTML = `<strong>Confidence:</strong> ${data.confidence}% (Cosine Distance: ${data.distance})<br/>Access Granted for Driving Test Video Analysis.`;
+            
+            document.getElementById('proceedToVideoLink').href = `/analysis?candidate_id=${candidateId}`;
+            document.getElementById('proceedActionBtn').classList.remove('d-none');
+        } else {
+            alertBox.className = 'alert alert-danger rounded-3 p-3 text-start shadow-sm border-0 d-block';
+            document.getElementById('authStatusIcon').className = 'fa-solid fa-circle-xmark text-danger fs-2';
+            document.getElementById('authStatusTitle').innerText = 'Authentication Rejected / Face Match Below 70%';
+            document.getElementById('authStatusText').innerHTML = `${data.message || 'Captured face does not match registered candidate photo.'}<br/><strong>Match Score:</strong> ${data.confidence !== undefined ? data.confidence : 0}% (Required: ≥ 70.0%).`;
+        }
+    } catch (err) {
+        document.getElementById('verifyBtn').disabled = false;
+        alertBox.className = 'alert alert-warning rounded-3 p-3 text-start shadow-sm border-0 d-block';
+        document.getElementById('authStatusIcon').className = 'fa-solid fa-triangle-exclamation text-warning fs-2';
+        document.getElementById('authStatusTitle').innerText = 'Verification Error';
+        document.getElementById('authStatusText').innerText = 'Failed to connect to verification server: ' + err.message;
+    }
+}
+</script>
+{% endblock %}

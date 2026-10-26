@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}Candidate Registration | Driving Validation System{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center align-items-center min-vh-75 my-4">
+    <div class="col-md-7 col-lg-6">
+        <div class="card glass-card border-0 rounded-4 p-4 p-md-5 shadow-lg">
+            
+            <div class="text-center mb-4">
+                <div class="icon-shape bg-info-subtle text-info rounded-circle mx-auto mb-3" style="width: 60px; height: 60px;">
+                    <i class="fa-solid fa-user-plus fs-3"></i>
+                </div>
+                <h3 class="fw-bold text-white mb-1">Candidate Account Registration</h3>
+                <p class="text-muted small">Create your account to proceed with driving skill validation.</p>
+            </div>
+
+            <form action="{{ url_for('signup') }}" method="POST">
+                <!-- Full Name -->
+                <div class="mb-3">
+                    <label class="form-label text-light fw-semibold">Full Name <span class="text-danger">*</span></label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-dark-subtle border-secondary"><i class="fa-solid fa-user"></i></span>
+                        <input type="text" name="full_name" class="form-control bg-light border-secondary text-dark" placeholder="Enter Full Name..." required>
+                    </div>
+                </div>
+
+                <!-- Email ID -->
+                <div class="mb-3">
+                    <label class="form-label text-light fw-semibold">Email ID <span class="text-danger">*</span></label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-dark-subtle border-secondary"><i class="fa-solid fa-envelope"></i></span>
+                        <input type="email" name="email" class="form-control bg-light border-secondary text-dark" placeholder="name@example.com" required>
+                    </div>
+                </div>
+
+                <!-- Mobile Number -->
+                <div class="mb-3">
+                    <label class="form-label text-light fw-semibold">Mobile Number <span class="text-danger">*</span></label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-dark-subtle border-secondary"><i class="fa-solid fa-phone"></i></span>
+                        <input type="tel" name="mobile" class="form-control bg-light border-secondary text-dark" placeholder="10-digit Mobile Number" required>
+                    </div>
+                </div>
+
+                <!-- Create Password -->
+                <div class="mb-3">
+                    <label class="form-label text-light fw-semibold">Create Password <span class="text-danger">*</span></label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-dark-subtle border-secondary"><i class="fa-solid fa-key"></i></span>
+                        <input type="password" name="password" class="form-control bg-light border-secondary text-dark" placeholder="Create Password..." required minlength="4">
+                    </div>
+                </div>
+
+                <!-- Confirm Password -->
+                <div class="mb-4">
+                    <label class="form-label text-light fw-semibold">Confirm Password <span class="text-danger">*</span></label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-dark-subtle border-secondary"><i class="fa-solid fa-lock"></i></span>
+                        <input type="password" name="confirm_password" class="form-control bg-light border-secondary text-dark" placeholder="Confirm Password..." required minlength="4">
+                    </div>
+                </div>
+
+                <!-- REGISTER Button -->
+                <button type="submit" class="btn btn-success w-100 btn-lg rounded-pill shadow mb-4">
+                    <i class="fa-solid fa-check-circle me-2"></i> REGISTER
+                </button>
+            </form>
+
+            <hr class="border-secondary mb-4">
+
+            <!-- Already registered? Login -->
+            <div class="text-center">
+                <p class="text-muted small mb-0">Already registered? 
+                    <a href="{{ url_for('login') }}" class="text-info fw-bold text-decoration-none ms-1">Login Here</a>
+                </p>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

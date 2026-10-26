@@ -1,0 +1,496 @@
+{% extends "base.html" %}
+
+{% block title %}Driving Test Video Analysis | Driving Skill Validation System{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <!-- Left Column: Video Upload & Configuration -->
+    <div class="col-lg-4">
+        <div class="card glass-card border-0 rounded-4 p-4 shadow-lg">
+            <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom border-secondary">
+                <h5 class="fw-bold text-white mb-0">
+                    <i class="fa-solid fa-cloud-arrow-up text-primary me-2"></i> Step 3: Video Verification
+                </h5>
+                <span class="badge bg-success rounded-pill px-3 py-2"><i class="fa-solid fa-video me-1"></i> Step 3 of 3</span>
+            </div>
+            <p class="text-muted small mb-4 mt-2">Upload recorded driving test video for automated skill validation.</p>
+
+            <form id="videoAnalysisForm">
+                <!-- Candidate Selection -->
+                <div class="mb-3">
+                    <label class="form-label text-light fw-semibold">Authenticated Candidate <span class="text-danger">*</span></label>
+                    <select id="analysisCandidateId" name="candidate_id" class="form-select bg-light border-secondary text-dark" required onchange="onAnalysisCandidateSelect()">
+                        <option value="">-- Select Candidate --</option>
+                        {% for c in candidates %}
+                            <option value="{{ c.candidate_id }}"
+                                    data-name="{{ c.name }}"
+                                    data-aadhaar="{{ c.aadhaar }}"
+                                    data-mobile="{{ c.mobile }}"
+                                    data-photo="{{ url_for('static', filename=c.photo_path.replace('static/', '')) }}"
+                                    {% if selected_candidate_id == c.candidate_id %}selected{% endif %}>
+                                {{ c.name }} (ID: {{ c.candidate_id }})
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Candidate Identity Profile Display Card (Who is he?) -->
+                <div id="candidateProfileCard" class="card bg-dark-subtle border border-primary p-3 rounded-4 mb-4 d-none shadow-sm">
+                    <div class="d-flex align-items-center gap-3">
+                        <img id="candProfilePhoto" src="" alt="Candidate Photo" class="rounded-circle object-fit-cover border border-info shadow" width="64" height="64">
+                        <div class="overflow-hidden">
+                            <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+                                <h6 id="candProfileName" class="fw-bold text-white mb-0 fs-6"></h6>
+                                <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill small">
+                                    <i class="fa-solid fa-user-check me-1"></i> Verified
+                                </span>
+                            </div>
+                            <div class="small text-muted font-monospace">
+                                <div><i class="fa-solid fa-id-card text-info me-1"></i> ID: <code id="candProfileId" class="text-info fw-bold"></code></div>
+                                <div><i class="fa-solid fa-fingerprint me-1"></i> Aadhaar: <span id="candProfileAadhaar" class="text-light"></span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Video File Input -->
+                <div class="mb-4">
+                    <label class="form-label text-light fw-semibold">Upload Driving Test Video (.mp4, .avi, .mov) <span class="text-danger">*</span></label>
+                    <input type="file" id="videoFileInput" name="video" class="form-control bg-light border-secondary text-dark" accept="video/*" required>
+                    <div id="selectedVideoFileInfo" class="small text-info mt-1 d-none font-monospace">
+                        <i class="fa-solid fa-file-video me-1"></i> <span id="selectedVideoFileName"></span>
+                    </div>
+                </div>
+
+                <button type="submit" id="startAnalysisBtn" class="btn btn-primary w-100 btn-lg rounded-pill shadow">
+                    <i class="fa-solid fa-microchip me-2"></i> Process And Evaluation
+                </button>
+            </form>
+
+            <div class="mt-4 pt-3 border-top border-secondary">
+                
+                <div class="d-flex flex-wrap gap-1">
+                   
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column: Computer Vision & ML Live Processing Telemetry -->
+    <div class="col-lg-8">
+        <div class="card glass-card border-0 rounded-4 p-4 shadow-lg">
+            <div class="d-flex align-items-center justify-content-between mb-3 border-bottom border-secondary pb-2">
+                <h4 class="fw-bold text-white mb-0">
+                    <i class="fa-solid fa-desktop text-info me-2"></i> Video Analysis
+                </h4>
+                <span id="analysisBadgeStatus" class="badge bg-secondary rounded-pill px-3 py-2">Awaiting Video</span>
+            </div>
+
+            <!-- Video Player Preview / Processing Viewport -->
+            <div id="videoContainerWrapper" class="video-container-wrapper mb-4 position-relative rounded-4 overflow-hidden shadow-sm">
+                <!-- Initial Placeholder (shown before video is uploaded) -->
+                <div id="videoPlaceholderState" class="video-placeholder-state d-flex flex-column align-items-center justify-content-center text-center">
+                    <div class="placeholder-icon-circle mb-3">
+                        <i class="fa-solid fa-video text-primary fs-2"></i>
+                    </div>
+                    <h5 class="fw-bold text-dark mb-1">Driving Test Video Preview</h5>
+                    <p class="text-muted small mb-0">Select candidate and upload a video file (.mp4) to begin automated skill evaluation</p>
+                </div>
+
+                <!-- HTML5 Uploaded Video Player Preview (responsive, fits natural aspect ratio) -->
+                <video id="uploadedVideoPlayer" controls class="video-display-element d-none" playsinline preload="metadata"></video>
+
+                <!-- Processed Frame Display with Live Detections (responsive, fits natural aspect ratio) -->
+                <img id="processedFrameDisplay" class="video-display-element d-none" alt="Processed Video Frame">
+                
+                <!-- Overlay Progress Spinner -->
+                <div id="processingOverlay" class="position-absolute top-0 start-0 w-100 h-100 bg-dark bg-opacity-75 d-none d-flex flex-column align-items-center justify-content-center" style="z-index: 10;">
+                    <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;" role="status"></div>
+                    <h5 id="progressText" class="text-white fw-bold">Analyzing Video Frames...</h5>
+                    <div class="progress w-50 mt-2 bg-secondary" style="height: 8px;">
+                        <div id="progressBarInner" class="progress-bar progress-bar-striped progress-bar-animated bg-primary" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Professional DRIVING SKILL EVALUATION Results Panel -->
+            <div id="evaluationPanel" class="mt-4 p-4 rounded-4 bg-light border border-secondary-subtle shadow-sm">
+                <!-- Panel Header -->
+                <div class="d-flex align-items-center justify-content-between mb-3 border-bottom pb-3">
+                    <div>
+                        <span class="text-uppercase text-muted fw-bold small tracking-wide">Automated Assessment</span>
+                        <h4 class="fw-bold text-dark mb-0 d-flex align-items-center gap-2">
+                            <i class="fa-solid fa-clipboard-check text-primary"></i>
+                            <span>DRIVING SKILL EVALUATION</span>
+                        </h4>
+                    </div>
+                    <span id="evalStatusBadge" class="badge bg-secondary-subtle text-secondary border px-3 py-2 rounded-pill font-monospace fs-6">
+                        Awaiting Processing
+                    </span>
+                </div>
+
+                <!-- Structured Evaluation Parameters List -->
+                <div class="list-group list-group-flush mb-4 rounded-3 border overflow-hidden shadow-sm">
+                    <!-- 1. Helmet Compliance -->
+                    <div class="list-group-item d-flex align-items-center justify-content-between p-3 bg-white">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="p-2 rounded-circle bg-primary-subtle text-primary">
+                                <i class="fa-solid fa-user-shield fs-5"></i>
+                            </div>
+                            <span class="fw-bold text-dark fs-6">Helmet Compliance</span>
+                        </div>
+                        <div id="statusHelmet">
+                            <span class="badge bg-light text-muted border px-3 py-2 fs-6 fw-semibold">--</span>
+                        </div>
+                    </div>
+
+                    <!-- 2. Lane Discipline -->
+                    <div class="list-group-item d-flex align-items-center justify-content-between p-3 bg-white border-top">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="p-2 rounded-circle bg-primary-subtle text-primary">
+                                <i class="fa-solid fa-road fs-5"></i>
+                            </div>
+                            <span class="fw-bold text-dark fs-6">Lane Discipline</span>
+                        </div>
+                        <div id="statusLane">
+                            <span class="badge bg-light text-muted border px-3 py-2 fs-6 fw-semibold">--</span>
+                        </div>
+                    </div>
+
+                    <!-- 3. Body Balance -->
+                    <div class="list-group-item d-flex align-items-center justify-content-between p-3 bg-white border-top">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="p-2 rounded-circle bg-primary-subtle text-primary">
+                                <i class="fa-solid fa-scale-balanced fs-5"></i>
+                            </div>
+                            <span class="fw-bold text-dark fs-6">Body Balance</span>
+                        </div>
+                        <div id="statusBalance">
+                            <span class="badge bg-light text-muted border px-3 py-2 fs-6 fw-semibold">--</span>
+                        </div>
+                    </div>
+
+                    <!-- 4. Foot Touch Detection -->
+                    <div class="list-group-item d-flex align-items-center justify-content-between p-3 bg-white border-top">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="p-2 rounded-circle bg-primary-subtle text-primary">
+                                <i class="fa-solid fa-shoe-prints fs-5"></i>
+                            </div>
+                            <span class="fw-bold text-dark fs-6">Foot Touch Detection</span>
+                        </div>
+                        <div id="statusFoot">
+                            <span class="badge bg-light text-muted border px-3 py-2 fs-6 fw-semibold">--</span>
+                        </div>
+                    </div>
+
+                    <!-- 5. Braking Control -->
+                    <div class="list-group-item d-flex align-items-center justify-content-between p-3 bg-white border-top">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="p-2 rounded-circle bg-primary-subtle text-primary">
+                                <i class="fa-solid fa-circle-stop fs-5"></i>
+                            </div>
+                            <span class="fw-bold text-dark fs-6">Braking Control</span>
+                        </div>
+                        <div id="statusBraking">
+                            <span class="badge bg-light text-muted border px-3 py-2 fs-6 fw-semibold">--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="my-4 border-secondary opacity-25">
+
+                <!-- Overall Score & Final Result Section -->
+                <div class="row align-items-center g-3 mb-3">
+                    <!-- Overall Score -->
+                    <div class="col-md-6">
+                        <div class="p-3 rounded-3 bg-white border d-flex align-items-center justify-content-between">
+                            <div>
+                                <span class="text-uppercase text-muted fw-bold small">Overall Score</span>
+                                <div id="displayOverallScore" class="fs-2 fw-extrabold text-primary mb-0 mt-1">
+                                    -- <span class="fs-5 text-muted fw-normal">/ 100</span>
+                                </div>
+                            </div>
+                            <i class="fa-solid fa-chart-pie fs-1 text-primary opacity-25 me-2"></i>
+                        </div>
+                    </div>
+
+                    <!-- FINAL RESULT -->
+                    <div class="col-md-6">
+                        <div class="p-3 rounded-3 bg-white border d-flex align-items-center justify-content-between">
+                            <div>
+                                <span class="text-uppercase text-muted fw-bold small">FINAL RESULT</span>
+                                <div id="displayFinalResult" class="mt-1">
+                                    <span class="badge bg-secondary-subtle text-muted border px-4 py-2 fs-5 fw-bold rounded-pill">--</span>
+                                </div>
+                            </div>
+                            <i id="finalResultIcon" class="fa-solid fa-award fs-1 text-secondary opacity-25 me-2"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Detected Mistakes / Reason Container -->
+                <div id="failureReasonContainer" class="mt-3 p-3 bg-danger-subtle border border-danger-subtle rounded-3 d-none">
+                    <h6 class="fw-bold text-danger mb-2"><i class="fa-solid fa-triangle-exclamation me-2"></i> Evaluation Findings / Violations:</h6>
+                    <ul id="failureReasonList" class="mb-0 text-dark ps-3"></ul>
+                </div>
+
+                <div id="successReasonContainer" class="mt-3 p-3 bg-success-subtle border border-success-subtle rounded-3 d-none">
+                    <div class="small text-success fw-bold">
+                        <i class="fa-solid fa-circle-check me-2 fs-6"></i> Candidate safely completed the driving validation test.
+                    </div>
+                </div>
+
+                <!-- View Report Button -->
+                <div class="mt-4 pt-3 text-end border-top border-secondary border-opacity-25">
+                    <a id="viewFullReportBtn" href="#" class="btn btn-success rounded-pill px-4 shadow-sm disabled">
+                        <i class="fa-solid fa-file-pdf me-2"></i> View Report & PDF
+                    </a>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    onAnalysisCandidateSelect();
+
+    // Attach video file preview handler
+    document.getElementById('videoFileInput').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            document.getElementById('selectedVideoFileName').innerText = file.name + ' (' + (file.size / (1024*1024)).toFixed(2) + ' MB)';
+            document.getElementById('selectedVideoFileInfo').classList.remove('d-none');
+
+            // Preview video in HTML5 video player
+            const videoUrl = URL.createObjectURL(file);
+            const player = document.getElementById('uploadedVideoPlayer');
+            const imgDisplay = document.getElementById('processedFrameDisplay');
+            const placeholder = document.getElementById('videoPlaceholderState');
+            
+            player.src = videoUrl;
+            player.classList.remove('d-none');
+            imgDisplay.classList.add('d-none');
+            if (placeholder) placeholder.classList.add('d-none');
+            
+            document.getElementById('analysisBadgeStatus').className = 'badge bg-info text-dark rounded-pill px-3 py-2';
+            document.getElementById('analysisBadgeStatus').innerText = 'Video Loaded - Ready for Evaluation';
+            document.getElementById('evalStatusBadge').className = 'badge bg-info-subtle text-info border border-info px-3 py-2 rounded-pill font-monospace fs-6';
+            document.getElementById('evalStatusBadge').innerText = 'Ready for Processing';
+        }
+    });
+});
+
+function onAnalysisCandidateSelect() {
+    const select = document.getElementById('analysisCandidateId');
+    const profileCard = document.getElementById('candidateProfileCard');
+
+    if (select.value && select.selectedIndex > 0) {
+        const selectedOpt = select.options[select.selectedIndex];
+        const name = selectedOpt.getAttribute('data-name');
+        const photo = selectedOpt.getAttribute('data-photo');
+        const aadhaar = selectedOpt.getAttribute('data-aadhaar');
+        const candId = select.value;
+
+        document.getElementById('candProfileName').textContent = name;
+        document.getElementById('candProfilePhoto').src = photo;
+        document.getElementById('candProfileId').textContent = candId;
+        document.getElementById('candProfileAadhaar').textContent = aadhaar;
+
+        profileCard.classList.remove('d-none');
+    } else {
+        profileCard.classList.add('d-none');
+    }
+}
+
+document.getElementById('videoAnalysisForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const candidateId = document.getElementById('analysisCandidateId').value;
+    const fileInput = document.getElementById('videoFileInput');
+
+    if (!candidateId || !fileInput.files[0]) {
+        alert('Please select candidate and upload a video file.');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('candidate_id', candidateId);
+    formData.append('video', fileInput.files[0]);
+
+    // Show Progress Overlay
+    const overlay = document.getElementById('processingOverlay');
+    const startBtn = document.getElementById('startAnalysisBtn');
+    overlay.classList.remove('d-none');
+    startBtn.disabled = true;
+    document.getElementById('analysisBadgeStatus').className = 'badge bg-warning text-dark rounded-pill px-3 py-2';
+    document.getElementById('analysisBadgeStatus').innerText = 'Processing Video...';
+    document.getElementById('evalStatusBadge').className = 'badge bg-warning-subtle text-warning border border-warning px-3 py-2 rounded-pill font-monospace fs-6';
+    document.getElementById('evalStatusBadge').innerText = 'Evaluating Video...';
+
+    // Simulate progress animation
+    let pct = 0;
+    const interval = setInterval(() => {
+        if (pct < 90) {
+            pct += 10;
+            document.getElementById('progressBarInner').style.width = pct + '%';
+        }
+    }, 400);
+
+    fetch('/api/analyze_video', {
+        method: 'POST',
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        clearInterval(interval);
+        document.getElementById('progressBarInner').style.width = '100%';
+
+        setTimeout(() => {
+            overlay.classList.add('d-none');
+            startBtn.disabled = false;
+
+            if (data.error) {
+                alert('Analysis Error: ' + data.error);
+                return;
+            }
+
+            // Switch from Video Player to Processed Frame display if sample frame provided
+            const player = document.getElementById('uploadedVideoPlayer');
+            const imgDisplay = document.getElementById('processedFrameDisplay');
+            const placeholder = document.getElementById('videoPlaceholderState');
+            if (data.sample_frame_url) {
+                imgDisplay.src = data.sample_frame_url;
+                imgDisplay.classList.remove('d-none');
+                player.classList.add('d-none');
+                if (placeholder) placeholder.classList.add('d-none');
+            }
+
+            // Update Status Badges
+            const resUpper = (data.overall_result || '').toUpperCase();
+            const isPass = resUpper === 'PASS';
+            const isReview = resUpper === 'NEEDS REVIEW' || resUpper === 'NEEDS_REVIEW';
+
+            if (isPass) {
+                document.getElementById('analysisBadgeStatus').className = 'badge bg-success rounded-pill px-3 py-2';
+                document.getElementById('analysisBadgeStatus').innerText = 'Final Result: QUALIFIED';
+                document.getElementById('evalStatusBadge').className = 'badge bg-success-subtle text-success border border-success px-3 py-2 rounded-pill font-monospace fs-6';
+                document.getElementById('evalStatusBadge').innerText = 'Evaluation Complete - QUALIFIED';
+            } else if (isReview) {
+                document.getElementById('analysisBadgeStatus').className = 'badge bg-warning text-dark rounded-pill px-3 py-2';
+                document.getElementById('analysisBadgeStatus').innerText = 'Final Result: NEEDS REVIEW';
+                document.getElementById('evalStatusBadge').className = 'badge bg-warning-subtle text-warning border border-warning px-3 py-2 rounded-pill font-monospace fs-6';
+                document.getElementById('evalStatusBadge').innerText = 'Evaluation Inconclusive - MANUAL REVIEW REQUIRED';
+            } else {
+                document.getElementById('analysisBadgeStatus').className = 'badge bg-danger rounded-pill px-3 py-2';
+                document.getElementById('analysisBadgeStatus').innerText = 'Final Result: NOT QUALIFIED';
+                document.getElementById('evalStatusBadge').className = 'badge bg-danger-subtle text-danger border border-danger px-3 py-2 rounded-pill font-monospace fs-6';
+                document.getElementById('evalStatusBadge').innerText = 'Evaluation Complete - NOT QUALIFIED';
+            }
+
+            // 1. Helmet Compliance
+            const helmetState = data.helmet_state || (data.helmet_status ? 'PASS' : 'FAIL');
+            renderParamBadge('statusHelmet', helmetState, data.helmet_status, 'FAIL');
+            
+            // 2. Lane Discipline
+            const laneState = data.lane_state || (data.lane_status ? 'PASS' : 'FAIL');
+            const laneCount = data.lane_violation_count || 0;
+            const laneText = laneCount > 0 ? `${laneCount} Boundary Contact${laneCount > 1 ? 's' : ''}` : 'Boundary Violation';
+            renderParamBadge('statusLane', laneState, data.lane_status, laneText);
+            
+            // 3. Body Balance
+            const balanceState = data.balance_state || (data.balance_status ? 'PASS' : 'FAIL');
+            renderParamBadge('statusBalance', balanceState, data.balance_status, 'Violation');
+
+            // 4. Foot Touch Detection
+            const footState = data.foot_touch_state || (data.foot_touch_status ? 'PASS' : 'FAIL');
+            const footCount = data.foot_touch_count || 0;
+            const footText = footCount > 0 ? `${footCount} Violation${footCount > 1 ? 's' : ''}` : 'Violation';
+            renderParamBadge('statusFoot', footState, data.foot_touch_status, footText);
+
+            // 5. Braking Control
+            const brakingState = data.braking_state || (data.braking_status ? 'PASS' : 'FAIL');
+            renderParamBadge('statusBraking', brakingState, data.braking_status, 'Violation');
+
+            // Overall Score
+            const scoreVal = (data.overall_score !== undefined && data.overall_score !== null) ? Math.round(data.overall_score) : 0;
+            document.getElementById('displayOverallScore').innerHTML = `${scoreVal} <span class="fs-5 text-muted fw-normal">/ 100</span>`;
+
+            // FINAL RESULT
+            const displayResult = document.getElementById('displayFinalResult');
+            const resultIcon = document.getElementById('finalResultIcon');
+            const failureContainer = document.getElementById('failureReasonContainer');
+            const failureList = document.getElementById('failureReasonList');
+            const successContainer = document.getElementById('successReasonContainer');
+            const reportBtn = document.getElementById('viewFullReportBtn');
+
+            if (isPass) {
+                displayResult.innerHTML = `<span class="badge bg-success text-white px-4 py-2 fs-5 fw-extrabold rounded-pill shadow-sm"><i class="fa-solid fa-check me-2"></i> QUALIFIED</span>`;
+                resultIcon.className = 'fa-solid fa-circle-check fs-1 text-success me-2';
+                failureContainer.classList.add('d-none');
+                successContainer.classList.remove('d-none');
+            } else if (isReview) {
+                displayResult.innerHTML = `<span class="badge bg-warning text-dark px-4 py-2 fs-5 fw-extrabold rounded-pill shadow-sm"><i class="fa-solid fa-triangle-exclamation me-2"></i> NEEDS REVIEW</span>`;
+                resultIcon.className = 'fa-solid fa-triangle-exclamation fs-1 text-warning me-2';
+                failureList.innerHTML = '';
+                const mistakes = (data.mistakes && data.mistakes.length > 0) ? data.mistakes : ['Helmet or safety requirement requires manual verification.'];
+                mistakes.forEach(m => {
+                    const li = document.createElement('li');
+                    li.className = 'fw-semibold text-warning-emphasis mb-1 small';
+                    li.innerHTML = `<i class="fa-solid fa-circle-question text-warning me-2"></i> ${m}`;
+                    failureList.appendChild(li);
+                });
+                failureContainer.classList.remove('d-none');
+                successContainer.classList.add('d-none');
+            } else {
+                displayResult.innerHTML = `<span class="badge bg-danger text-white px-4 py-2 fs-5 fw-extrabold rounded-pill shadow-sm"><i class="fa-solid fa-xmark me-2"></i> NOT QUALIFIED</span>`;
+                resultIcon.className = 'fa-solid fa-circle-xmark fs-1 text-danger me-2';
+                
+                failureList.innerHTML = '';
+                if (data.mistakes && data.mistakes.length > 0) {
+                    data.mistakes.forEach(m => {
+                        const li = document.createElement('li');
+                        li.className = 'fw-semibold text-danger mb-1 small';
+                        li.innerHTML = `<i class="fa-solid fa-xmark text-danger me-2"></i> ${m}`;
+                        failureList.appendChild(li);
+                    });
+                } else {
+                    const li = document.createElement('li');
+                    li.className = 'fw-semibold text-danger mb-1 small';
+                    li.innerHTML = '<i class="fa-solid fa-xmark text-danger me-2"></i> Driving performance score below required threshold or helmet missing.';
+                    failureList.appendChild(li);
+                }
+                failureContainer.classList.remove('d-none');
+                successContainer.classList.add('d-none');
+            }
+
+            // Enable View Report Button
+            reportBtn.href = `/report/${data.evaluation_id}`;
+            reportBtn.classList.remove('disabled');
+        }, 500);
+    })
+    .catch(err => {
+        clearInterval(interval);
+        overlay.classList.add('d-none');
+        startBtn.disabled = false;
+        alert('Server Error during video analysis: ' + err.message);
+    });
+});
+
+function renderParamBadge(elementId, stateStr, isPass, violationText) {
+    const container = document.getElementById(elementId);
+    if (!container) return;
+    const normalized = (stateStr || '').toUpperCase();
+    if (normalized === 'UNCLEAR' || normalized === 'NEEDS REVIEW' || normalized === 'NEEDS_REVIEW') {
+        container.innerHTML = `<span class="badge bg-warning text-dark border border-warning px-3 py-2 fs-6 fw-bold"><i class="fa-solid fa-circle-question me-1"></i> NEEDS REVIEW</span>`;
+    } else if (isPass || normalized === 'PASS') {
+        container.innerHTML = `<span class="badge bg-success-subtle text-success border border-success px-3 py-2 fs-6 fw-bold"><i class="fa-solid fa-check me-1"></i> PASS</span>`;
+    } else {
+        container.innerHTML = `<span class="badge bg-danger-subtle text-danger border border-danger px-3 py-2 fs-6 fw-bold"><i class="fa-solid fa-xmark me-1"></i> ${violationText}</span>`;
+    }
+}
+</script>
+{% endblock %}
