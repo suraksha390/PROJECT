@@ -6,29 +6,25 @@ from config import SAVED_MODELS_DIR
 class DrivingMLEvaluator:
     def __init__(self):
         self.rf_model_path = os.path.join(SAVED_MODELS_DIR, 'rf_model.pkl')
-        self.svm_model_path = os.path.join(SAVED_MODELS_DIR, 'svm_model.pkl')
         self.scaler_path = os.path.join(SAVED_MODELS_DIR, 'scaler.pkl')
 
         self.rf_model = None
-        self.svm_model = None
         self.scaler = None
 
         self.load_models()
 
     def load_models(self):
-        """Loads trained Random Forest and SVM models if available."""
-        if os.path.exists(self.rf_model_path) and os.path.exists(self.svm_model_path) and os.path.exists(self.scaler_path):
+        """Loads trained Random Forest model if available."""
+        if os.path.exists(self.rf_model_path) and os.path.exists(self.scaler_path):
             try:
                 self.rf_model = joblib.load(self.rf_model_path)
-                self.svm_model = joblib.load(self.svm_model_path)
                 self.scaler = joblib.load(self.scaler_path)
-                print("Successfully loaded Random Forest & SVM ML models.")
+                print("Successfully loaded Random Forest ML model.")
             except Exception as e:
                 print(f"Error loading trained models: {e}")
                 self.rf_model = None
-                self.svm_model = None
         else:
-            print("Trained models not found. Running heuristic ML predictor (models will be generated).")
+            print("Trained model not found. Running heuristic ML predictor (model will be generated).")
 
     def evaluate(self, auth_status, helmet_status, lane_status, foot_touch_status, balance_status, 
                  lane_violation_count=0, foot_touch_count=0, max_lean_angle=5.0,
@@ -131,8 +127,6 @@ class DrivingMLEvaluator:
             'final_result': final_result,
             'rf_prediction': final_result,
             'rf_confidence': 95.0,
-            'svm_prediction': final_result,
-            'svm_confidence': 95.0,
             'overall_score': overall_score,
             'mistakes': mistakes
         }
@@ -142,6 +136,6 @@ class DrivingMLEvaluator:
         critical_pass = auth_status and helmet_status and lane_status and foot_touch_status and balance_status
         result = "PASS" if critical_pass else "FAIL"
         conf = 95.0 if critical_pass else 90.0
-        return result, result, conf, conf
+        return result, conf
 
 ml_evaluator = DrivingMLEvaluator()

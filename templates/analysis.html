@@ -137,9 +137,17 @@
                             <div class="p-2 rounded-circle bg-primary-subtle text-primary">
                                 <i class="fa-solid fa-user-shield fs-5"></i>
                             </div>
-                            <span class="fw-bold text-dark fs-6">Helmet Compliance</span>
+                            <div>
+                                <span class="fw-bold text-dark fs-6">Helmet Compliance</span>
+                                <div id="helmetConfidenceDisplay" class="small text-muted d-none">
+                                    <i class="fa-solid fa-gauge-high text-info me-1"></i>
+                                    <span>Confidence: </span>
+                                    <span id="helmetConfidenceValue" class="fw-bold text-dark">--</span>
+                                    <span id="helmetConfidenceLabel" class="badge ms-1"></span>
+                                </div>
+                            </div>
                         </div>
-                        <div id="statusHelmet">
+                        <div id="statusHelmet" class="d-flex align-items-center gap-2">
                             <span class="badge bg-light text-muted border px-3 py-2 fs-6 fw-semibold">--</span>
                         </div>
                     </div>
@@ -394,6 +402,31 @@ document.getElementById('videoAnalysisForm').addEventListener('submit', function
             // 1. Helmet Compliance
             const helmetState = data.helmet_state || (data.helmet_status ? 'PASS' : 'FAIL');
             renderParamBadge('statusHelmet', helmetState, data.helmet_status, 'FAIL');
+
+            // Display Actual Helmet Detection Confidence
+            const confBox = document.getElementById('helmetConfidenceDisplay');
+            const confVal = document.getElementById('helmetConfidenceValue');
+            const confLabel = document.getElementById('helmetConfidenceLabel');
+            if (confBox && data.helmet_confidence !== undefined && data.helmet_confidence !== null) {
+                confBox.classList.remove('d-none');
+                const confScore = Number(data.helmet_confidence);
+                const confPct = Math.round(confScore <= 1.0 ? confScore * 100 : confScore);
+                confVal.textContent = `${confPct}%`;
+
+                if (confPct >= 95) {
+                    confLabel.className = 'badge bg-success-subtle text-success border border-success ms-1';
+                    confLabel.textContent = 'Strong Helmet Detection (≥95%)';
+                } else if (confPct >= 85) {
+                    confLabel.className = 'badge bg-primary-subtle text-primary border border-primary ms-1';
+                    confLabel.textContent = 'Accepted Helmet (≥85%)';
+                } else if (confPct > 0) {
+                    confLabel.className = 'badge bg-warning-subtle text-warning border border-warning ms-1';
+                    confLabel.textContent = 'Below 85% Threshold (Needs Review)';
+                } else {
+                    confLabel.className = 'badge bg-secondary-subtle text-secondary border ms-1';
+                    confLabel.textContent = 'Not Detected / Non-protective';
+                }
+            }
             
             // 2. Lane Discipline
             const laneState = data.lane_state || (data.lane_status ? 'PASS' : 'FAIL');

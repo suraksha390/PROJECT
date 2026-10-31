@@ -7,7 +7,6 @@ import numpy as np
 import joblib
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.svm import SVC
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import classification_report, accuracy_score
 
@@ -30,7 +29,7 @@ def train_and_save_models():
     X_train_scaled = scaler.fit_transform(X_train)
     X_test_scaled = scaler.transform(X_test)
 
-    # 1. Train Random Forest Classifier
+    # Train Random Forest Classifier
     rf = RandomForestClassifier(n_estimators=100, max_depth=10, random_state=42)
     rf.fit(X_train_scaled, y_train)
     rf_pred = rf.predict(X_test_scaled)
@@ -38,21 +37,12 @@ def train_and_save_models():
     print(f"--- Random Forest Accuracy: {rf_acc * 100:.2f}% ---")
     print(classification_report(y_test, rf_pred))
 
-    # 2. Train Support Vector Machine (SVM)
-    svm = SVC(kernel='rbf', C=1.0, probability=True, random_state=42)
-    svm.fit(X_train_scaled, y_train)
-    svm_pred = svm.predict(X_test_scaled)
-    svm_acc = accuracy_score(y_test, svm_pred)
-    print(f"--- Support Vector Machine (SVM) Accuracy: {svm_acc * 100:.2f}% ---")
-    print(classification_report(y_test, svm_pred))
-
-    # Save models and scaler
+    # Save model and scaler
     os.makedirs(SAVED_MODELS_DIR, exist_ok=True)
     joblib.dump(rf, os.path.join(SAVED_MODELS_DIR, 'rf_model.pkl'))
-    joblib.dump(svm, os.path.join(SAVED_MODELS_DIR, 'svm_model.pkl'))
     joblib.dump(scaler, os.path.join(SAVED_MODELS_DIR, 'scaler.pkl'))
 
-    print(f"Models successfully trained & saved to {SAVED_MODELS_DIR}")
+    print(f"Random Forest model successfully trained & saved to {SAVED_MODELS_DIR}")
 
 if __name__ == '__main__':
     train_and_save_models()

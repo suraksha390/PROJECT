@@ -387,10 +387,12 @@ def api_analyze_video():
 
         frame_count = 0
         total_rider_frames = 0
+        reliable_rider_frames = 0
         helmet_pass_count = 0
         no_helmet_count = 0
         other_headwear_count = 0
         helmet_review_count = 0
+        helmet_confidences = []
 
         lane_violation_count = 0
         foot_touch_count = 0
@@ -402,6 +404,7 @@ def api_analyze_video():
         # Process sample frames (stride = 3 for efficiency)
         stride = 3
         last_annotated_frame = None
+        best_annotated_frame = None
 
         while cap.isOpened():
             ret, frame = cap.read()
@@ -418,15 +421,22 @@ def api_analyze_video():
                 total_rider_frames += 1
                 h_cls = yolo_dets.get('helmet_class', 'none')
                 h_stat = yolo_dets.get('helmet_status', 'FAIL')
+                h_conf = yolo_dets.get('helmet_conf', 0.0)
 
                 if h_cls == 'helmet' and h_stat == 'PASS':
                     helmet_pass_count += 1
+                    reliable_rider_frames += 1
+                    helmet_confidences.append(h_conf)
                 elif h_cls == 'other_headwear':
                     other_headwear_count += 1
+                    reliable_rider_frames += 1
                 elif h_cls == 'no_helmet':
                     no_helmet_count += 1
+                    reliable_rider_frames += 1
                 elif h_stat == 'Needs Review':
                     helmet_review_count += 1
+                    if h_cls == 'helmet' and h_conf > 0:
+                        helmet_confidences.append(h_conf)
 
             # 2. OpenCV Lane Boundary Detection & Motorcycle Tracking
             # Uses YOLO motorcycle detection and tracks motorcycle relative to boundaries
@@ -449,6 +459,8 @@ def api_analyze_video():
             if abs(pose_info['lean_angle']) > max_lean_angle:
                 max_lean_angle = abs(pose_info['lean_angle'])
 
+            if yolo_dets['rider_found']:
+                best_annotated_frame = final_frame
             last_annotated_frame = final_frame
 
         cap.release()
@@ -456,52 +468,69 @@ def api_analyze_video():
         total_sampled_frames = max(1, frame_count // stride)
 
         # Save a sample annotated frame for frontend display
-        if last_annotated_frame is not None:
+        frame_to_save = best_annotated_frame if best_annotated_frame is not None else last_annotated_frame
+        if frame_to_save is not None:
             sample_img_name = f"sample_{candidate_id}.jpg"
             sample_img_path = os.path.join(PROCESSED_VIDEOS_DIR, sample_img_name)
-            cv2.imwrite(sample_img_path, last_annotated_frame)
+            cv2.imwrite(sample_img_path, frame_to_save)
             sample_frame_url = f"/static/uploads/processed/{sample_img_name}"
 
         # Evaluate Skill Parameters — Practical & Tolerant Evaluation (Not Overly Strict)
         auth_status = 1
 
         # 1. Helmet Compliance (Compulsory Requirement)
-        # Confirmed missing helmet or confirmed non-helmet headwear makes requirement fail.
-        # Uncertain / low confidence / missing model detections require manual review, not automatic pass.
+        # Evaluated across multiple reliable frames:
+        # - Confidently detected genuine motorcycle helmet (conf >= threshold): PASS
+        # - Helmet detected with conf < 85%: Needs Review
+        # - Confidently detected uncovered head: FAIL
+        # - Confidently detected cap or other non-protective headwear: FAIL
+        # - Blurred, hidden, or uncertain head throughout: NEEDS REVIEW
         helmet_notes = []
+        actual_helmet_conf = 0.0
+
         if total_rider_frames == 0:
             helmet_state = 'Needs Review'
             helmet_status = 0
             helmet_notes.append("No rider detected in video frames for helmet verification.")
+        elif reliable_rider_frames < 3:
+            helmet_state = 'Needs Review'
+            helmet_status = 0
+            helmet_notes.append("Head region was blurred, distant, or uncertain throughout video frames (Manual Safety Review Required).")
         else:
-            helmet_pass_ratio = helmet_pass_count / total_rider_frames
-            violation_ratio = (other_headwear_count + no_helmet_count) / total_rider_frames
-            review_ratio = helmet_review_count / total_rider_frames
+            helmet_pass_ratio = helmet_pass_count / reliable_rider_frames
+            violation_ratio = (other_headwear_count + no_helmet_count) / reliable_rider_frames
+            no_helmet_ratio = no_helmet_count / reliable_rider_frames
+            other_headwear_ratio = other_headwear_count / reliable_rider_frames
 
-            # Case A: Confirmed non-protective headwear (Cap / Hat / Cloth)
-            if other_headwear_count >= 2 and (other_headwear_count / total_rider_frames) >= VIDEO_VIOLATION_RATIO:
+            # Case A: Confirmed uncovered head (bare face/scalp without helmet)
+            if no_helmet_count >= 3 and no_helmet_ratio >= 0.35 and no_helmet_count > helmet_pass_count:
                 helmet_state = 'FAIL'
                 helmet_status = 0
-                helmet_notes.append("Non-protective headwear (Cap/Hat/Cloth) confirmed on rider (Motorcycle Safety Helmet Required).")
-            # Case B: Confirmed missing helmet / bare head
-            elif no_helmet_count >= 2 and (no_helmet_count / total_rider_frames) >= VIDEO_VIOLATION_RATIO:
-                helmet_state = 'FAIL'
-                helmet_status = 0
+                actual_helmet_conf = 0.0
                 helmet_notes.append("Uncovered head detected - Rider was not wearing a protective motorcycle helmet.")
-            # Case C: Confidently verified genuine motorcycle helmet across required majority of frames
-            elif helmet_pass_ratio >= VIDEO_HELMET_PASS_RATIO and violation_ratio < 0.15:
-                helmet_state = 'PASS'
-                helmet_status = 1
-            # Case D: Inconclusive or high proportion of blurred/uncertain frames
-            elif review_ratio >= 0.35:
-                helmet_state = 'Needs Review'
+            # Case B: Confirmed non-protective headwear (Cap / Hat / Cloth)
+            elif other_headwear_count >= 3 and other_headwear_ratio >= 0.35 and other_headwear_count > helmet_pass_count:
+                helmet_state = 'FAIL'
                 helmet_status = 0
-                helmet_notes.append("Inconclusive or blurred head frames require manual safety review.")
-            # Case E: Inconsistent / mixed detections
+                actual_helmet_conf = 0.0
+                helmet_notes.append("Non-protective headwear (Cap/Hat/Cloth) confirmed on rider (Motorcycle Safety Helmet Required).")
+            # Case C: Confidently detected genuine motorcycle helmet across reliable frames
+            elif helmet_pass_count >= 3 and helmet_pass_ratio >= 0.50 and violation_ratio < 0.35:
+                avg_conf = round(float(np.mean(helmet_confidences)), 2) if helmet_confidences else 0.0
+                actual_helmet_conf = avg_conf
+                if actual_helmet_conf >= yolo_detector.helmet_conf_threshold:
+                    helmet_state = 'PASS'
+                    helmet_status = 1
+                else:
+                    helmet_state = 'Needs Review'
+                    helmet_status = 0
+                    helmet_notes.append(f"Helmet detection confidence ({int(actual_helmet_conf * 100)}%) is below the {int(yolo_detector.helmet_conf_threshold * 100)}% threshold (Manual Safety Review Required).")
+            # Case D: Inconclusive, ambiguous, or mixed detections
             else:
                 helmet_state = 'Needs Review'
                 helmet_status = 0
-                helmet_notes.append("Inconsistent helmet detection across video frames (Manual Safety Review Required).")
+                actual_helmet_conf = round(float(np.mean(helmet_confidences)), 2) if helmet_confidences else 0.0
+                helmet_notes.append("Inconclusive helmet detection across video frames (Manual Safety Review Required).")
 
         # 2. Lane Discipline (Straight Driving Lane Tracking)
         # Evaluates confirmed boundary contacts across video frames
@@ -544,7 +573,7 @@ def api_analyze_video():
             braking_state = 'FAIL'
             braking_status = 0
 
-        # 4. Machine Learning Driving Performance Prediction (Random Forest & SVM)
+        # 4. Machine Learning Driving Performance Prediction (Random Forest)
         ml_res = ml_evaluator.evaluate(
             auth_status=auth_status,
             helmet_status=helmet_status,
@@ -581,7 +610,6 @@ def api_analyze_video():
             'balance_status': balance_status,
             'overall_result': ml_res['final_result'],
             'rf_prediction': ml_res['rf_prediction'],
-            'svm_prediction': ml_res['svm_prediction'],
             'overall_score': ml_res['overall_score'],
             'mistakes': ml_res['mistakes'],
             'video_path': f"static/uploads/videos/{filename}",
@@ -601,8 +629,8 @@ def api_analyze_video():
             'overall_result': ml_res['final_result'],
             'overall_score': ml_res['overall_score'],
             'rf_prediction': ml_res['rf_prediction'],
-            'svm_prediction': ml_res['svm_prediction'],
             'helmet_status': bool(helmet_status),
+            'helmet_confidence': actual_helmet_conf,
             'lane_status': bool(lane_status),
             'foot_touch_status': bool(foot_touch_status),
             'balance_status': bool(balance_status),

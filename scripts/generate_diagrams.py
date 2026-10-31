@@ -101,7 +101,7 @@ def create_use_case():
         ("UC-2: Real-Time FaceNet Verification", (6.0, 5.3)),
         ("UC-3: Upload Driving Test Video", (6.0, 4.2)),
         ("UC-4: Analyze Helmet, Lane, Foot & Balance", (6.0, 3.1)),
-        ("UC-5: Predict Result (Random Forest & SVM)", (6.0, 2.0)),
+        ("UC-5: Predict Result (Random Forest)", (6.0, 2.0)),
         ("UC-6: Download Official PDF Report", (6.0, 0.9))
     ]
 
@@ -159,7 +159,7 @@ def create_activity_diagram():
     steps_after = [
         ("Upload Recorded Driving Test Video File", 3.0),
         ("Run YOLOv8, OpenCV Lane & MediaPipe Pose Analytics", 2.0),
-        ("Classify Driving Outcome via Random Forest & SVM", 1.0)
+        ("Classify Driving Outcome via Random Forest", 1.0)
     ]
 
     for text, y in steps_after:
@@ -222,7 +222,7 @@ def create_sequence_diagram():
         (3.8, 6.4, 3.4, "4: Match Webcam Frame (Cosine Distance)", "->"),
         (6.4, 3.8, 2.7, "5: Auth Result (PASS / FAIL)", "<--"),
         (1.2, 3.8, 2.0, "6: Upload Test Video File", "->"),
-        (3.8, 9.0, 1.4, "7: Extract CV Metrics & Classify (RF & SVM)", "->"),
+        (3.8, 9.0, 1.4, "7: Extract CV Metrics & Classify (Random Forest)", "->"),
         (9.0, 11.2, 0.8, "8: Save Evaluation & Compile PDF Report", "->")
     ]
 
@@ -273,7 +273,6 @@ def create_class_diagram():
         
         ("DrivingMLEvaluator", 4.4, 0.5, 3.4, 2.7, [
             "+ rf_model: RandomForestClassifier",
-            "+ svm_model: SupportVectorMachine",
             "+ scaler: StandardScaler"
         ], ["+ evaluate(feature_vector)", "+ predict_score_and_result()"]),
 
@@ -337,7 +336,7 @@ def create_er_diagram():
     ax.add_patch(patches.Rectangle((7.0, 0.8), 3.4, 4.2, facecolor='#dcfce7', edgecolor='#15803d', lw=2.2))
     ax.add_patch(patches.Rectangle((7.0, 4.4), 3.4, 0.6, facecolor='#15803d', edgecolor='#15803d'))
     ax.text(8.7, 4.7, "EVALUATION ENTITY", fontsize=12, fontweight='bold', ha='center', color='#ffffff')
-    eval_attrs = "• id [PRIMARY KEY]\n• candidate_id [FOREIGN KEY]\n• auth_status (0/1)\n• helmet_status (0/1)\n• lane_status (0/1)\n• foot_touch_status (0/1)\n• balance_status (0/1)\n• overall_result (PASS/FAIL)\n• rf_prediction & svm_pred\n• overall_score: REAL\n• mistakes_json & report_path"
+    eval_attrs = "• id [PRIMARY KEY]\n• candidate_id [FOREIGN KEY]\n• auth_status (0/1)\n• helmet_status (0/1)\n• lane_status (0/1)\n• foot_touch_status (0/1)\n• balance_status (0/1)\n• overall_result (PASS/FAIL)\n• rf_prediction\n• overall_score: REAL\n• mistakes_json & report_path"
     ax.text(7.15, 4.2, eval_attrs, fontsize=9.5, fontweight='bold', va='top', color='#166534')
 
     # Connections (1 to N)
@@ -391,7 +390,6 @@ def create_db_schema():
         "balance_status: INTEGER [NOT NULL]",
         "overall_result: TEXT [PASS / FAIL]",
         "rf_prediction: TEXT",
-        "svm_prediction: TEXT",
         "overall_score: REAL [NOT NULL]",
         "mistakes_json: TEXT",
         "report_path: TEXT"
@@ -428,7 +426,7 @@ def create_system_flowchart():
         ("Compare Face Embeddings (Cosine Distance < 0.50?)", 6.0, "decision"),
         ("Upload Recorded Driving Test Video", 4.7, "process"),
         ("Run YOLOv8, OpenCV Lane & MediaPipe Analytics", 3.7, "process"),
-        ("Predict Test Outcome using Random Forest & SVM", 2.7, "process"),
+        ("Predict Test Outcome using Random Forest", 2.7, "process"),
         ("Compile Results & Generate PDF Evaluation Report", 1.7, "process"),
     ]
 
@@ -492,7 +490,7 @@ def create_ui_diagram():
     # Hero Card Mockup
     ax.add_patch(patches.Rectangle((1.0, 4.3), 10.0, 1.3, facecolor='#1e3a8a', edgecolor='#2563eb', lw=1.8))
     ax.text(1.3, 5.2, "Automated Driving Skill Validation & Evaluation Dashboard", fontsize=12, fontweight='bold', color='#ffffff')
-    ax.text(1.3, 4.7, "FaceNet CNN • YOLOv8 Detector • MediaPipe Pose • Random Forest & SVM Classifiers", fontsize=9.5, fontweight='bold', color='#93c5fd')
+    ax.text(1.3, 4.7, "FaceNet CNN • YOLOv8 Detector • MediaPipe Pose • Random Forest Classifier", fontsize=9.5, fontweight='bold', color='#93c5fd')
 
     # Telemetry Cards Mockup
     cards = [
@@ -513,7 +511,7 @@ def create_ui_diagram():
 
     ax.add_patch(patches.Rectangle((7.3, 0.8), 3.7, 1.6, facecolor='#14532d', edgecolor='#22c55e', lw=1.8))
     ax.text(9.15, 1.9, "FINAL RESULT: PASS", fontsize=12, fontweight='bold', ha='center', color='#ffffff')
-    ax.text(9.15, 1.4, "Score: 95.0% | RF: PASS | SVM: PASS", fontsize=9.5, fontweight='bold', ha='center', color='#dcfce7')
+    ax.text(9.15, 1.4, "Score: 95.0% | RF: PASS", fontsize=9.5, fontweight='bold', ha='center', color='#dcfce7')
     ax.text(9.15, 1.05, "[ Download Official PDF Report ]", fontsize=9, fontweight='bold', ha='center', color='#fef08a')
 
     plt.tight_layout()

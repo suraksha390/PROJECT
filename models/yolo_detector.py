@@ -189,11 +189,19 @@ class YoloDetector:
 
                 # Apply class-specific confidence thresholds
                 if best_cls == 'helmet' and best_conf >= self.helmet_conf_threshold:
+                    strength = "Strong helmet detection" if best_conf >= 0.95 else "Genuine motorcycle helmet detected"
                     return {
                         'class': 'helmet',
                         'confidence': round(best_conf, 3),
                         'status': 'PASS',
-                        'details': f'Genuine motorcycle helmet detected (confidence: {best_conf:.2f})'
+                        'details': f'{strength} (confidence: {best_conf:.2f})'
+                    }
+                elif best_cls == 'helmet' and best_conf < self.helmet_conf_threshold:
+                    return {
+                        'class': 'uncertain',
+                        'confidence': round(best_conf, 3),
+                        'status': 'Needs Review',
+                        'details': f'Helmet confidence below {int(self.helmet_conf_threshold * 100)}% ({best_conf:.2f}) - Needs Review'
                     }
                 elif best_cls == 'other_headwear' and best_conf >= self.other_headwear_conf_threshold:
                     return {
@@ -226,8 +234,8 @@ class YoloDetector:
     def _fallback_cv_analysis(self, head_roi, gray, lap_var):
         """
         Calibrated multi-cue computer vision analysis:
-        - Rejects uncovered bare heads using strict biological human skin constraints -> 'no_helmet', FAIL
-        - Rejects baseball caps / brimmed hats / visors -> 'other_headwear', FAIL
+        - Rejects uncovered bare heads using strict biological human skin & hair constraints -> 'no_helmet', FAIL
+        - Rejects baseball caps / brimmed hats with exposed ears/neck -> 'other_headwear', FAIL
         - Rejects fabric cloths / scarves / dupattas / turbans / towels -> 'other_headwear', FAIL
         - Confidently classifies genuine motorcycle safety helmets -> 'helmet', PASS
         - Returns 'Needs Review' if head is blurred, degraded, or ambiguous
@@ -242,12 +250,11 @@ class YoloDetector:
         total_pixels = float(h * w + 1e-5)
 
         # 1. Biological Human Skin Detection (YCbCr + RGB)
-        # Prevents false positives on background wooden fences, concrete walls, or yellow asphalt
         skin_mask = ((cr >= 135) & (cr <= 175) & (cb >= 85) & (cb <= 125) &
                      (r > g + 8) & (g > b + 2))
         skin_ratio = float(np.sum(skin_mask)) / total_pixels
 
-        # Divide head into crown (top 45% where helmet/headwear sits) and face (lower 55%)
+        # Divide head into crown (top 45% where helmet dome sits) and face/lower region (lower 55%)
         mid_y = int(h * 0.45)
         crown = head_roi[:mid_y, :]
         face = head_roi[mid_y:, :]
@@ -263,7 +270,7 @@ class YoloDetector:
             float(np.mean(ear_right)) if ear_right.size > 0 else 0
         )
 
-        # 2. Visor / Brim Detection (Baseball cap / brimmed hat)
+        # 2. Visor / Brim Detection (Horizontal structural edges)
         blur = cv2.GaussianBlur(gray, (5, 5), 0)
         edges = cv2.Canny(blur, 40, 120)
         lower_edges = edges[int(h * 0.35):int(h * 0.75), :]
@@ -273,7 +280,6 @@ class YoloDetector:
         brim_score = float(np.sum(h_lines > 0)) / float(w + 1e-5)
 
         # 3. Fabric Texture & Pattern Variation across crown
-        # Smooth rigid helmet shell has low local patch variance; printed cloth/scarf has high
         crown_gray = cv2.cvtColor(crown, cv2.COLOR_BGR2GRAY).astype(np.float32)
         k = 5
         m_cr = cv2.blur(crown_gray, (k, k))
@@ -294,64 +300,95 @@ class YoloDetector:
         hair_ratio = float(np.mean(hair_mask))
 
         # 6. Printed Color Patterns (Floral, checkered, or printed scarves)
-        # Note: A solid painted helmet (blue, red, black, etc.) has smooth uniform texture (high_texture_ratio < 0.25).
-        # A printed cloth scarf combines contrasting color patches (e.g. blue/pink florals) with fabric wrinkles/texture.
         blue_pattern = float(np.mean((crown_hsv[:, :, 0] >= 95) & (crown_hsv[:, :, 0] <= 130) & (crown_hsv[:, :, 1] >= 40)))
         pink_pattern = float(np.mean(((crown_hsv[:, :, 0] >= 155) | (crown_hsv[:, :, 0] <= 10)) & (crown_hsv[:, :, 1] >= 60) & (crown_hsv[:, :, 2] >= 70)))
         has_cloth_pattern = (
-            (blue_pattern > 0.05 and pink_pattern > 0.03 and high_texture_ratio > 0.20) or
-            (blue_pattern > 0.05 and high_texture_ratio > 0.35) or
-            (pink_pattern > 0.05 and high_texture_ratio > 0.35)
+            (specular_ratio < 0.05) and (
+                (blue_pattern > 0.06 and pink_pattern > 0.04 and high_texture_ratio > 0.25) or
+                (blue_pattern > 0.08 and high_texture_ratio > 0.40) or
+                (pink_pattern > 0.08 and high_texture_ratio > 0.40)
+            )
         )
 
         # DECISION LOGIC:
 
-        # Case A: Bare Head (Uncovered Face and Hair / Scalp)
-        if (skin_ratio > 0.25 and face_skin > 0.30) or (crown_skin > 0.18 and face_skin > 0.25) or (hair_ratio > 0.35 and face_skin > 0.25):
-            conf = min(0.95, round(max(skin_ratio, face_skin), 2))
+        # Case A: Bare Head (Uncovered Forehead/Scalp and Face)
+        # An uncovered head MUST exhibit visible skin on the crown/forehead or scalp hair on top
+        is_bare_head = (
+            (crown_skin > 0.15 and face_skin > 0.20) or
+            (hair_ratio > 0.30 and face_skin > 0.22) or
+            (skin_ratio > 0.28 and crown_skin > 0.10)
+        )
+        if is_bare_head:
+            conf = min(0.95, round(max(skin_ratio, face_skin, crown_skin), 2))
             return {
                 'class': 'no_helmet',
                 'confidence': conf,
                 'status': 'FAIL',
-                'details': f'Uncovered bare head detected (face skin: {face_skin:.2f}, hair: {hair_ratio:.2f})'
+                'details': f'Uncovered bare head detected (crown skin: {crown_skin:.2f}, face skin: {face_skin:.2f}, hair: {hair_ratio:.2f})'
             }
 
-        # Case B: Baseball Cap / Brimmed Hat (Protruding visor or exposed ears with cap crown)
-        if brim_score > 0.25 or (ear_skin_ratio > 0.20 and crown_skin < 0.15 and hair_ratio > 0.20):
+        # Case B: Baseball Cap / Brimmed Hat
+        # A baseball cap covers the crown but leaves ears, lower face/neck exposed,
+        # or has a protruding brim with exposed ear/face skin underneath.
+        # (Motorcycle helmet visors also have horizontal lines, but the helmet shell covers ears/neck and crown).
+        is_cap = (
+            (ear_skin_ratio > 0.22 and crown_skin < 0.15 and hair_ratio > 0.15) or
+            (brim_score > 0.25 and (ear_skin_ratio > 0.18 or face_skin > 0.22)) or
+            (ear_skin_ratio > 0.28 and face_skin > 0.25 and crown_skin <= 0.15)
+        )
+        if is_cap:
             return {
                 'class': 'other_headwear',
                 'confidence': 0.85,
                 'status': 'FAIL',
-                'details': f'Cap/Hat detected with exposed ears/visor (brim: {brim_score:.2f}, ear skin: {ear_skin_ratio:.2f})'
+                'details': f'Cap/Hat detected with exposed ears/neck (ear skin: {ear_skin_ratio:.2f}, brim: {brim_score:.2f})'
             }
 
         # Case C: Printed Cloth / Scarf / Dupatta / Turban / Towel
-        if has_cloth_pattern or (high_texture_ratio > 0.48 and median_local_std > 22.0):
+        if has_cloth_pattern or (high_texture_ratio > 0.55 and median_local_std > 24.0 and specular_ratio < 0.04):
             return {
                 'class': 'other_headwear',
                 'confidence': 0.85,
                 'status': 'FAIL',
-                'details': f'Non-protective cloth/scarf headwear detected (texture: {high_texture_ratio:.2f}, pattern: {blue_pattern:.2f})'
+                'details': f'Non-protective cloth/scarf headwear detected (texture: {high_texture_ratio:.2f})'
             }
 
         # Case D: Genuine Motorcycle Safety Helmet
-        # Low crown skin (<= 0.12), ears enclosed by helmet shell (ear_skin_ratio <= 0.15),
-        # smooth rigid shell without cloth patterns (specular highlight or smooth surface)
-        if crown_skin <= 0.12 and ear_skin_ratio <= 0.15 and not has_cloth_pattern and (high_texture_ratio <= 0.45 or specular_ratio > 0.08):
-            conf = round(0.85 + min(0.10, specular_ratio), 2)
-            return {
-                'class': 'helmet',
-                'confidence': conf,
-                'status': 'PASS',
-                'details': f'Motorcycle safety helmet verified (specular: {specular_ratio:.2f}, shell texture: {high_texture_ratio:.2f})'
-            }
+        # Low crown skin (<= 0.12), ears enclosed by helmet shell (ear_skin_ratio <= 0.20),
+        # low scalp hair on crown (<= 0.25), no non-protective cloth pattern,
+        # and rigid curved dome characteristics (specular highlight or smooth surface or helmet visor)
+        is_helmet = (
+            crown_skin <= 0.12 and
+            ear_skin_ratio <= 0.20 and
+            hair_ratio <= 0.25 and
+            not has_cloth_pattern and
+            (specular_ratio > 0.03 or high_texture_ratio <= 0.50 or brim_score > 0.20)
+        )
+        if is_helmet:
+            conf = round(min(0.98, 0.85 + max(specular_ratio, 0.05)), 2)
+            if conf >= self.helmet_conf_threshold:
+                strength = "Strong helmet detection" if conf >= 0.95 else "Genuine motorcycle helmet detected"
+                return {
+                    'class': 'helmet',
+                    'confidence': conf,
+                    'status': 'PASS',
+                    'details': f'{strength} (specular: {specular_ratio:.2f}, crown skin: {crown_skin:.2f})'
+                }
+            else:
+                return {
+                    'class': 'uncertain',
+                    'confidence': conf,
+                    'status': 'Needs Review',
+                    'details': f'Helmet confidence below {int(self.helmet_conf_threshold * 100)}% ({conf:.2f}) - Needs Review'
+                }
 
         # Case E: Ambiguous / Inconclusive Headwear -> Needs Review
         return {
             'class': 'uncertain',
             'confidence': 0.50,
             'status': 'Needs Review',
-            'details': f'Headwear cues ambiguous (crown skin: {crown_skin:.2f}, texture: {high_texture_ratio:.2f})'
+            'details': f'Headwear cues ambiguous (crown skin: {crown_skin:.2f}, ear skin: {ear_skin_ratio:.2f})'
         }
 
     def check_helmet_roi(self, head_roi):
@@ -481,25 +518,19 @@ class YoloDetector:
 
                     if h_res['class'] == 'helmet' and h_res['status'] == 'PASS':
                         detections['helmet_detected'] = True
-                        cv2.rectangle(annotated_frame, (head_x1, ry1), (head_x2, head_y2), (0, 255, 0), 2)
-                        cv2.putText(annotated_frame, f"Helmet: WORN ({h_res['confidence']:.2f})",
-                                    (head_x1, max(20, ry1 - 25)), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-                    elif h_res['class'] == 'other_headwear':
-                        detections['helmet_detected'] = False
-                        cv2.rectangle(annotated_frame, (head_x1, ry1), (head_x2, head_y2), (0, 0, 255), 2)
-                        cv2.putText(annotated_frame, f"Cap/Cloth: NOT HELMET ({h_res['confidence']:.2f})",
-                                    (head_x1, max(20, ry1 - 25)), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 0, 255), 2)
-                    elif h_res['class'] == 'no_helmet':
-                        detections['helmet_detected'] = False
-                        cv2.rectangle(annotated_frame, (head_x1, ry1), (head_x2, head_y2), (0, 0, 255), 2)
-                        cv2.putText(annotated_frame, f"No Helmet: Bare Head ({h_res['confidence']:.2f})",
-                                    (head_x1, max(20, ry1 - 25)), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 0, 255), 2)
+                        helmet_label = "Helmet: WORN"
+                        box_color = (0, 255, 0)
                     else:
-                        # Uncertain / Needs Review
                         detections['helmet_detected'] = False
-                        cv2.rectangle(annotated_frame, (head_x1, ry1), (head_x2, head_y2), (0, 165, 255), 2)
-                        cv2.putText(annotated_frame, "Helmet: Needs Review",
-                                    (head_x1, max(20, ry1 - 25)), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 165, 255), 2)
+                        helmet_label = "Helmet: NOT WORN"
+                        box_color = (0, 0, 255)
+
+                    cv2.rectangle(annotated_frame, (head_x1, ry1), (head_x2, head_y2), box_color, 2)
+                    h_label_y = max(20, ry1 - 25) if ry1 >= 45 else min(h - 10, head_y2 + 18)
+                    cv2.putText(annotated_frame, helmet_label, (head_x1, h_label_y),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 3)
+                    cv2.putText(annotated_frame, helmet_label, (head_x1, h_label_y),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.6, box_color, 2)
 
                 # Process Motorcycle Detection
                 if best_moto is not None:
@@ -515,10 +546,7 @@ class YoloDetector:
             except Exception as ex:
                 print(f"[YoloDetector] Frame prediction error: {ex}")
 
-        # Ground Level line on annotated frame
-        cv2.line(annotated_frame, (0, detections['ground_line_y']), (w, detections['ground_line_y']), (0, 165, 255), 2)
-        cv2.putText(annotated_frame, "GROUND LINE", (10, max(20, detections['ground_line_y'] - 10)),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 165, 255), 1)
+        # Ground line calculation retained for pose/balance analysis without drawing unwanted visual lines
 
         return detections, annotated_frame
 

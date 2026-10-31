@@ -33,7 +33,7 @@ def generate_word_report():
     # Document Header Title
     p_title = doc.add_paragraph()
     p_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run_title = p_title.add_run("Video Based Driving Skill Validation System Using FaceNet, YOLOv8, MediaPipe, OpenCV, Random Forest, and SVM")
+    run_title = p_title.add_run("Video Based Driving Skill Validation System Using FaceNet, YOLOv8, MediaPipe, OpenCV, and Random Forest")
     run_title.font.name = 'Arial'
     run_title.font.size = Pt(20)
     run_title.font.bold = True
@@ -80,13 +80,13 @@ def generate_word_report():
     # 1. Abstract
     add_sec_heading("1. Abstract")
     doc.add_paragraph("The rapid growth of motor vehicle usage underscores the critical need for rigorous, standardized, and unbiased driving test evaluations to ensure road safety and reduce traffic accidents. Traditional manual driving skill assessments conducted by human inspectors are inherently susceptible to subjective bias, human error, inconsistent scoring criteria, and potential identity fraud during registration. To overcome these limitations, this project presents an automated Video-Based Driving Skill Validation System that integrates modern Deep Learning, Computer Vision, and Machine Learning techniques into a unified end-to-end web architecture.")
-    doc.add_paragraph("The system features candidate authentication powered by FaceNet Convolutional Neural Network (CNN) facial embeddings to verify candidate identity against registered records using webcam imagery. For skill assessment, recorded test videos undergo frame-by-frame analysis using YOLOv8 for rider and helmet detection, OpenCV for lane line segmentation and boundary violation tracking, and MediaPipe Pose estimation to measure foot-to-ground contact distance and spine lean angle stability. Extracted behavioral features are evaluated using Random Forest and Support Vector Machine (SVM) classifiers to predict overall test outcomes (PASS or FAIL) alongside detailed mistake diagnostics and automated PDF report generation.")
+    doc.add_paragraph("The system features candidate authentication powered by FaceNet Convolutional Neural Network (CNN) facial embeddings to verify candidate identity against registered records using webcam imagery. For skill assessment, recorded test videos undergo frame-by-frame analysis using YOLOv8 for rider and helmet detection, OpenCV for lane line segmentation and boundary violation tracking, and MediaPipe Pose estimation to measure foot-to-ground contact distance and spine lean angle stability. Extracted behavioral features are evaluated using a Random Forest classifier to predict overall test outcomes (PASS or FAIL) alongside detailed mistake diagnostics and automated PDF report generation.")
 
     # 2. Introduction
     add_sec_heading("2. Introduction")
     doc.add_paragraph("Road safety is a paramount concern for transport authorities globally, where driver incompetence and safety rule violations remain primary contributors to traffic fatalities. Obtaining a driver's license serves as a critical regulatory gateway, yet traditional manual evaluation methods rely heavily on the visual inspection of human invigilators. This conventional approach frequently introduces variability in grading standards, limited tracking precision for micro-violations (such as subtle foot contact or slight posture imbalance), and significant administrative overhead.")
     doc.add_paragraph("Automated vision-based evaluation systems represent a paradigm shift in intelligent transportation systems (ITS). By capturing video feeds from driving test tracks, high-resolution cameras combined with edge computer vision algorithms can continuously monitor candidate maneuvers without human intervention. Automated scoring ensures strict adherence to traffic regulations, eliminates subjective bias, and creates verifiable digital audit trails for every candidate.")
-    doc.add_paragraph("This project delivers a complete web-based Driving Skill Validation System built with Python, Flask, OpenCV, YOLOv8, MediaPipe, FaceNet, and SQLite. The primary objectives are to authenticate candidate identity prior to testing, continuously track safety violations (helmet wearing, lane discipline, foot touching, rider balance), classify overall driving competence via Random Forest and SVM algorithms, and generate comprehensive, downloadable PDF evaluation reports.")
+    doc.add_paragraph("This project delivers a complete web-based Driving Skill Validation System built with Python, Flask, OpenCV, YOLOv8, MediaPipe, FaceNet, and SQLite. The primary objectives are to authenticate candidate identity prior to testing, continuously track safety violations (helmet wearing, lane discipline, foot touching, rider balance), classify overall driving competence via the Random Forest algorithm, and generate comprehensive, downloadable PDF evaluation reports.")
 
     # 3. Literature Survey
     add_sec_heading("3. Literature Survey")
@@ -102,14 +102,14 @@ def generate_word_report():
     add_sec_heading("5. Proposed Methodology")
     doc.add_paragraph("The proposed methodology establishes a streamlined, four-phase automated workflow: candidate registration and biometric indexing, real-time FaceNet authentication, computer vision feature extraction, and machine learning skill evaluation. During registration, candidate demographics and passport photos are stored in an SQLite database, where FaceNet extracts 512-dimensional facial feature vectors for future comparison.")
     doc.add_paragraph("Upon candidate verification via live webcam feed, the candidate uploads their recorded driving test video. The system passes video frames through a multi-threaded computer vision pipeline: 1) YOLOv8 identifies the rider, motorcycle, and head region to confirm helmet usage; 2) OpenCV performs color thresholding (HSV) and Hough Line transforms to detect track lane boundaries and register line-crossing violations; 3) MediaPipe Pose extracts 33 body keypoints to measure foot-to-ground vertical distance (distance <= 0 triggering a foot touch fault) and computes spine lean angles to evaluate vehicle and rider balance stability.")
-    doc.add_paragraph("Finally, the extracted feature vector—comprising authentication status, helmet presence, lane violation count, foot touch count, and maximum lean angle—is fed into trained Random Forest and Support Vector Machine (SVM) classifiers. The models output a consensus PASS or FAIL decision along with an overall percentage score. The system automatically compiles these results into an official downloadable PDF evaluation report via ReportLab.")
+    doc.add_paragraph("Finally, the extracted feature vector—comprising authentication status, helmet presence, lane violation count, foot touch count, and maximum lean angle—is fed into a trained Random Forest classifier. The model outputs a PASS or FAIL decision along with an overall percentage score. The system automatically compiles these results into an official downloadable PDF evaluation report via ReportLab.")
 
     # 6. Software Engineering Diagrams
     diagrams_dir = os.path.join(os.path.dirname(__file__), '..', 'static', 'diagrams')
 
     # 6.1 System Architecture Diagram
     add_sec_heading("6. System Architecture Diagram")
-    doc.add_paragraph("The System Architecture Diagram depicts the layered hardware and software organization. It shows the Presentation Layer (HTML5, CSS3, JS dashboard), Application Layer (Flask Web Server), Computer Vision & ML Pipeline Layer (FaceNet, YOLOv8, OpenCV, MediaPipe, RF & SVM), and Data Storage Layer (SQLite database).")
+    doc.add_paragraph("The System Architecture Diagram depicts the layered hardware and software organization. It shows the Presentation Layer (HTML5, CSS3, JS dashboard), Application Layer (Flask Web Server), Computer Vision & ML Pipeline Layer (FaceNet, YOLOv8, OpenCV, MediaPipe, Random Forest), and Data Storage Layer (SQLite database).")
     add_img_with_caption(os.path.join(diagrams_dir, 'system_architecture.png'), "System Architecture Diagram of Driving Validation System")
 
     # 6.2 Use Case Diagram
@@ -155,16 +155,16 @@ def generate_word_report():
     # 15. Implementation Details
     add_sec_heading("15. System Implementation")
     doc.add_paragraph("The system implementation is executed entirely in Python 3. Core modules are structured cleanly within a modular directory hierarchy:")
-    doc.add_paragraph("• database/db.py: Manages SQLite connections, candidate registration, and evaluation record persistence.\n• models/facenet_auth.py: Implements FaceNet CNN embeddings with an OpenCV feature extractor fallback to compare live webcam frames against registered candidate passport photos.\n• models/yolo_detector.py: Integrates ultralytics YOLOv8 nano models to detect motorcycle, rider, and head ROI bounding boxes.\n• models/lane_detector.py: Processes lower-frame regions using HSV masking, Canny edge detection, and Hough lines to detect boundary breaches.\n• models/pose_analyzer.py: Utilizes MediaPipe Pose to track ankle/heel/toe keypoints relative to ground lines for foot touch detection and calculates body tilt angles theta = arctan2(dy, dx).\n• models/ml_evaluator.py & scripts/train_ml_models.py: Uses scikit-learn to train Random Forest (N=100) and RBF-kernel SVM models on synthesized feature datasets, serializing .pkl artifacts.\n• utils/pdf_generator.py: Leverages ReportLab to dynamically build downloadable PDF reports containing candidate details, score badges, fault checklists, and inspector signature lines.")
+    doc.add_paragraph("• database/db.py: Manages SQLite connections, candidate registration, and evaluation record persistence.\n• models/facenet_auth.py: Implements FaceNet CNN embeddings with an OpenCV feature extractor fallback to compare live webcam frames against registered candidate passport photos.\n• models/yolo_detector.py: Integrates ultralytics YOLOv8 nano models to detect motorcycle, rider, and head ROI bounding boxes.\n• models/lane_detector.py: Processes lower-frame regions using HSV masking, Canny edge detection, and Hough lines to detect boundary breaches.\n• models/pose_analyzer.py: Utilizes MediaPipe Pose to track ankle/heel/toe keypoints relative to ground lines for foot touch detection and calculates body tilt angles theta = arctan2(dy, dx).\n• models/ml_evaluator.py & scripts/train_ml_models.py: Uses scikit-learn to train a Random Forest (N=100) model on synthesized feature datasets, serializing .pkl artifacts.\n• utils/pdf_generator.py: Leverages ReportLab to dynamically build downloadable PDF reports containing candidate details, score badges, fault checklists, and inspector signature lines.")
     doc.add_paragraph("The web server is powered by Flask with RESTful endpoints (/api/authenticate_face, /api/analyze_video, /report/<id>, /download_report/<id>) enabling real-time telemetry streaming and PDF delivery.")
 
     # 16. Results & Discussion
     add_sec_heading("16. Results and Discussion")
-    doc.add_paragraph("Experimental evaluation of the system was conducted using synthetic driving test feature datasets alongside recorded driving test video sequences. The machine learning classifiers (Random Forest and SVM) achieved 100% accuracy on the test dataset split, demonstrating clear decision boundaries between compliant driving performance and safety fault conditions.")
-    doc.add_paragraph("Computer vision telemetry successfully identified simulated safety violations in video streams, accurately detecting missing helmets, lane boundary crosses, foot contact with the ground, and sharp body instability. The automated PDF generation module produced clear reports within seconds of video processing completion. The results confirm that combining FaceNet authentication with multi-modal CV detectors and ML ensemble classifiers provides a reliable solution for automated driving skill validation.")
+    doc.add_paragraph("Experimental evaluation of the system was conducted using synthetic driving test feature datasets alongside recorded driving test video sequences. The machine learning classifier (Random Forest) achieved 100% accuracy on the test dataset split, demonstrating clear decision boundaries between compliant driving performance and safety fault conditions.")
+    doc.add_paragraph("Computer vision telemetry successfully identified simulated safety violations in video streams, accurately detecting missing helmets, lane boundary crosses, foot contact with the ground, and sharp body instability. The automated PDF generation module produced clear reports within seconds of video processing completion. The results confirm that combining FaceNet authentication with multi-modal CV detectors and Random Forest classification provides a reliable solution for automated driving skill validation.")
 
     # Data Table
-    table = doc.add_table(rows=3, cols=5)
+    table = doc.add_table(rows=2, cols=5)
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
     table.style = 'Table Grid'
     
@@ -183,11 +183,6 @@ def generate_word_report():
     for i, text in enumerate(data1):
         row1[i].text = text
 
-    row2 = table.rows[2].cells
-    data2 = ["Support Vector Machine (SVM)", "1.00", "1.00", "1.00", "100.0%"]
-    for i, text in enumerate(data2):
-        row2[i].text = text
-
     doc.add_paragraph() # Spacer
 
     # 17. References
@@ -198,8 +193,7 @@ def generate_word_report():
         "3. Lugaresi, C., et al. (2019). MediaPipe: A framework for building perception pipelines. arXiv preprint arXiv:1906.08172.",
         "4. Bradski, G. (2000). The OpenCV Library. Dr. Dobb's Journal of Software Tools.",
         "5. Breiman, L. (2001). Random Forests. Machine Learning, 45(1), 5-32.",
-        "6. Cortes, C., & Vapnik, V. (1995). Support-vector networks. Machine Learning, 20(3), 273-297.",
-        "7. Grinberg, M. (2018). Flask Web Development: Developing Web Applications with Python. O'Reilly Media."
+        "6. Grinberg, M. (2018). Flask Web Development: Developing Web Applications with Python. O'Reilly Media."
     ]
     for r in refs:
         doc.add_paragraph(r)
@@ -213,7 +207,7 @@ def generate_word_report():
                       "• Hardware: Standard CPU / optional CUDA GPU for accelerated YOLOv8/FaceNet inference; USB Webcam.")
     doc.add_paragraph("Appendix B: Execution Commands\n"
                       "# 1. Install Dependencies\npip install -r requirements.txt\n\n"
-                      "# 2. Train Random Forest & SVM Models\npython scripts/train_ml_models.py\n\n"
+                      "# 2. Train Random Forest Model\npython scripts/train_ml_models.py\n\n"
                       "# 3. Launch Flask Application\npython app.py")
 
     output_path = os.path.join(os.getcwd(), 'Video_Based_Driving_Skill_Validation_System_Report_Full.docx')

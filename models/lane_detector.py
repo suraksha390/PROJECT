@@ -446,7 +446,7 @@ class LaneDetector:
                 self.confirmed_violations.append(violation_record)
                 self.active_violation = violation_record
 
-        status_label = "OUTSIDE ROAD (VIOLATION)" if is_confirmed_violation else "INSIDE ROAD (PASS)"
+        status_label = "OUTSIDE ROAD (FAIL)" if is_confirmed_violation else "INSIDE ROAD (PASS)"
 
         return {
             'is_violating': is_confirmed_violation,
@@ -460,61 +460,26 @@ class LaneDetector:
 
     def draw_lane_overlay(self, frame, boundaries, motorcycle_bbox, contact_info):
         """
-        Draws straight lane / road boundaries in light brown (BGR: 140, 180, 210),
-        subtle transparent drivable road overlay, and motorcycle's detected position.
+        Draws clean road status banner on the video frame.
+        Road boundary lines, diagonal lines, and edge labels are removed as per requirements.
         """
         annotated = frame.copy()
         h, w = frame.shape[:2]
 
         is_violating = contact_info['is_violating']
-        boundary_touched = contact_info['boundary_touched']
 
-        # 1. Subtle Transparent Overlay for Drivable Road Region
-        poly = boundaries.get('drivable_polygon')
-        if poly is not None:
-            overlay = annotated.copy()
-            cv2.fillPoly(overlay, [poly], (130, 200, 130))
-            cv2.addWeighted(overlay, 0.12, annotated, 0.88, 0, annotated)
-
-        # 2. Draw Left and Right Road Edges in Light Brown (or Red if active violation on that side)
-        left_color = (0, 0, 255) if (is_violating and boundary_touched == 'LEFT') else self.lane_color
-        left_thickness = 4 if (is_violating and boundary_touched == 'LEFT') else 3
-        cv2.line(annotated, boundaries['left_top'], boundaries['left_bot'], left_color, left_thickness)
-
-        right_color = (0, 0, 255) if (is_violating and boundary_touched == 'RIGHT') else self.lane_color
-        right_thickness = 4 if (is_violating and boundary_touched == 'RIGHT') else 3
-        cv2.line(annotated, boundaries['right_top'], boundaries['right_bot'], right_color, right_thickness)
-
-        # Road Edge Labels in Light Brown
-        cv2.putText(annotated, "ROAD EDGE (L)", (boundaries['left_bot'][0] + 10, h - 15),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, self.lane_color, 1)
-        cv2.putText(annotated, "ROAD EDGE (R)", (boundaries['right_bot'][0] - 130, h - 15),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, self.lane_color, 1)
-
-        # 3. Motorcycle Position and Width
-        if motorcycle_bbox is not None:
-            mx1, my1, mx2, my2 = motorcycle_bbox
-            moto_w = contact_info['motorcycle_width']
-            moto_color = (0, 0, 255) if is_violating else (0, 255, 0)
-
-            # Bounding box & footprint baseline
-            cv2.rectangle(annotated, (mx1, my1), (mx2, my2), moto_color, 2)
-            cv2.line(annotated, (mx1, my2), (mx2, my2), moto_color, 3)
-            # Tyre contact point marker
-            cv2.circle(annotated, ((mx1 + mx2) // 2, my2), 5, (0, 255, 255), -1)
-
-            cv2.putText(annotated, f"Motorcycle ({moto_w}px)", (mx1, max(25, my1 - 8)),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.55, moto_color, 2)
-
-        # 4. Status HUD Banner
+        # Driving Road Status HUD Banner (INSIDE ROAD (PASS) or OUTSIDE ROAD (FAIL))
         if is_violating:
-            msg = f"OUTSIDE ROAD (VIOLATION): {boundary_touched} EDGE CROSSED ({contact_info['timestamp_str']})"
-            cv2.rectangle(annotated, (15, 25), (min(w - 15, 680), 62), (0, 0, 200), -1)
-            cv2.putText(annotated, msg, (22, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 2)
+            status_text = "OUTSIDE ROAD (FAIL)"
+            bg_color = (0, 0, 200)
+            box_w = 295
         else:
-            cv2.rectangle(annotated, (15, 25), (320, 62), (0, 100, 0), -1)
-            cv2.putText(annotated, "INSIDE ROAD (PASS)", (22, 50),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.65, (255, 255, 255), 2)
+            status_text = "INSIDE ROAD (PASS)"
+            bg_color = (0, 100, 0)
+            box_w = 275
+
+        cv2.rectangle(annotated, (15, 18), (15 + box_w, 54), bg_color, -1)
+        cv2.putText(annotated, status_text, (22, 43), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (255, 255, 255), 2)
 
         return annotated
 

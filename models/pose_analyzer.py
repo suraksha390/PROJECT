@@ -87,10 +87,6 @@ class PoseAnalyzer:
                     # If foot touches or extends past ground line (distance <= 3 pixels)
                     if foot_ground_distance <= 3:
                         analysis['foot_touch'] = True
-                        cv2.circle(annotated_frame, (int(l_foot[0]), int(l_foot[1])), 10, (0, 0, 255), -1)
-                        cv2.circle(annotated_frame, (int(r_foot[0]), int(r_foot[1])), 10, (0, 0, 255), -1)
-                        cv2.putText(annotated_frame, "FOOT TOUCH DETECTED! (FAIL)", (20, 80),
-                                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
                     # --- 2. Rider Balance & Lean Angle Detection ---
                     shoulder_center = (l_shoulder + r_shoulder) / 2.0
@@ -122,14 +118,11 @@ class PoseAnalyzer:
             analysis['balance_status'] = 'Stable'
             analysis['foot_touch'] = False
 
-        # Visual overlays
+        # Visual overlays - Balance Status only (Clean text, no Foot Touch label or lean angles)
         balance_color = (0, 255, 0) if analysis['balance_status'] == 'Stable' else (0, 0, 255)
-        cv2.putText(annotated_frame, f"Balance: {analysis['balance_status']} (Lean: {analysis['lean_angle']}deg)",
-                    (20, 110), cv2.FONT_HERSHEY_SIMPLEX, 0.65, balance_color, 2)
-        
-        foot_color = (0, 0, 255) if analysis['foot_touch'] else (0, 255, 0)
-        cv2.putText(annotated_frame, f"Foot Touch: {'TRUE (FAIL)' if analysis['foot_touch'] else 'FALSE (PASS)'}",
-                    (20, 140), cv2.FONT_HERSHEY_SIMPLEX, 0.65, foot_color, 2)
+        bal_text = f"Balance: {analysis['balance_status']}"
+        cv2.putText(annotated_frame, bal_text, (22, 85), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 0, 0), 3)
+        cv2.putText(annotated_frame, bal_text, (22, 85), cv2.FONT_HERSHEY_SIMPLEX, 0.65, balance_color, 2)
 
         return analysis, annotated_frame
 

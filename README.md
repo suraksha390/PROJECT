@@ -1,6 +1,6 @@
-# Video Based Driving Skill Validation System Using FaceNet, YOLOv8, MediaPipe, OpenCV, Random Forest, and SVM
+# Video Based Driving Skill Validation System Using FaceNet, YOLOv8, MediaPipe, OpenCV, and Random Forest
 
-An end-to-end Automated Driving Skill Validation System developed for Engineering Final Year Projects. The system authenticates candidates using **FaceNet CNN** facial embeddings, analyzes recorded driving test videos using **YOLOv8**, **OpenCV**, and **MediaPipe Pose**, predicts test outcomes using **Random Forest** and **SVM** classifiers, and automatically generates downloadable **PDF Driving Evaluation Reports**.
+An end-to-end Automated Driving Skill Validation System developed for Engineering Final Year Projects. The system authenticates candidates using **FaceNet CNN** facial embeddings, analyzes recorded driving test videos using **YOLOv8**, **OpenCV**, and **MediaPipe Pose**, predicts test outcomes using a **Random Forest** classifier, and automatically generates downloadable **PDF Driving Evaluation Reports**.
 
 ---
 
@@ -36,7 +36,6 @@ An end-to-end Automated Driving Skill Validation System developed for Engineerin
                   ┌──────────────────────────────────────────────┐
                   │ 4. Feature Extraction & Machine Learning     │
                   │    - Random Forest Classifier                │
-                  │    - Support Vector Machine (SVM)            │
                   └──────────────────────┬───────────────────────┘
                                          │
                                          ▼
@@ -58,7 +57,7 @@ An end-to-end Automated Driving Skill Validation System developed for Engineerin
 - **Rider Balance & Posture**: Calculates spine/shoulder tilt angle ($\theta = \arctan2$) and stability variance across frame sequences. Returns `Stable` / `Unstable`.
 
 ### Module 3: Machine Learning Driving Performance Prediction
-- Inputs aggregated feature matrix into **Random Forest** and **Support Vector Machine (SVM)** classifiers.
+- Inputs aggregated feature matrix into a trained **Random Forest** classifier.
 - Predicts overall result (`PASS` or `FAIL`) with score percentage (0-100%).
 
 ### Module 4: Automated PDF Report Generation
@@ -97,12 +96,12 @@ cd "c:/Users/SURAKSHA SHETTY/OneDrive/Documents/suraksha"
 pip install -r requirements.txt
 ```
 
-### Step 3: Train Machine Learning Models (Random Forest & SVM)
+### Step 3: Train Machine Learning Model (Random Forest)
 Run the automated dataset generator and ML model training script:
 ```bash
 python scripts/train_ml_models.py
 ```
-This outputs trained `rf_model.pkl`, `svm_model.pkl`, and `scaler.pkl` inside `static/saved_models/`.
+This outputs trained `rf_model.pkl` and `scaler.pkl` inside `static/saved_models/`.
 
 ### Step 4: Run Flask Web Application
 ```bash
@@ -133,11 +132,11 @@ http://127.0.0.1:5000
 │   ├── yolo_detector.py        # YOLOv8 Rider, Helmet & Ground Detector
 │   ├── lane_detector.py        # OpenCV Lane Boundary Segmentation
 │   ├── pose_analyzer.py        # MediaPipe Pose Foot Touch & Balance Tracker
-│   └── ml_evaluator.py         # Random Forest & SVM ML Engine
+│   └── ml_evaluator.py         # Random Forest ML Engine
 │
 ├── scripts/
 │   ├── generate_sample_data.py # Dataset Synthesizer
-│   └── train_ml_models.py      # RF & SVM Model Training Script
+│   └── train_ml_models.py      # RF Model Training Script
 │
 ├── utils/
 │   └── pdf_generator.py        # ReportLab PDF Report Generator
@@ -152,7 +151,7 @@ http://127.0.0.1:5000
 │   │   └── main.js             # Frontend Camera & AJAX Scripts
 │   ├── uploads/                # Photos, Uploaded Videos & Processed Frames
 │   ├── reports/                # Generated PDF Reports
-│   └── saved_models/           # Serialized RF & SVM Models (.pkl)
+│   └── saved_models/           # Serialized RF Model (.pkl)
 │
 └── templates/
     ├── base.html               # Base Template Layout
@@ -166,15 +165,14 @@ http://127.0.0.1:5000
 ---
 
 ## 📜 Final Year Project Presentation Summary
-- **Title**: Video based Driving Skill Validation System Using FaceNet, YOLOv8, MediaPipe, OpenCV, Random Forest, and SVM
+- **Title**: Video based Driving Skill Validation System Using FaceNet, YOLOv8, MediaPipe, OpenCV, and Random Forest
 - **Domain**: Artificial Intelligence, Computer Vision, Machine Learning, Web Development
 - **Backend Framework**: Flask (Python)
 - **Computer Vision Frameworks**: OpenCV, YOLOv8, MediaPipe Pose
 - **Deep Learning / Face Verification**: FaceNet CNN
-- **Machine Learning Algorithms**: Random Forest, Support Vector Machine (SVM)
+- **Machine Learning Algorithms**: Random Forest
 - **Database**: SQLite3
-#   A I _ b a s e d _ d r i v i n g _ s k i l l _ v a l i d a t i o n _ s y s t e m  
- #   A I _ b a s e d _ d r i v i n g _ s k i l l _ v a l i d a t i o n _ s y s t e m  
- #   n e w _ D r i v i n g  
- #   d r i v i n g 1  
- 
+# AI_based_driving_skill_validation_system
+# AI_based_driving_skill_validation_system
+# new_Driving
+# driving1

@@ -62,7 +62,6 @@ def init_db():
             balance_status INTEGER NOT NULL,
             overall_result TEXT NOT NULL,
             rf_prediction TEXT,
-            svm_prediction TEXT,
             overall_score REAL NOT NULL,
             mistakes_json TEXT,
             video_path TEXT,
@@ -206,9 +205,9 @@ def save_evaluation(eval_data):
         INSERT INTO evaluations (
             candidate_id, auth_status, helmet_status, lane_status, 
             foot_touch_status, balance_status, overall_result, 
-            rf_prediction, svm_prediction, overall_score, mistakes_json, 
+            rf_prediction, overall_score, mistakes_json, 
             video_path, processed_video_path, report_path
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
         eval_data['candidate_id'],
         eval_data['auth_status'],
@@ -218,7 +217,6 @@ def save_evaluation(eval_data):
         eval_data['balance_status'],
         eval_data['overall_result'],
         eval_data.get('rf_prediction', 'N/A'),
-        eval_data.get('svm_prediction', 'N/A'),
         eval_data['overall_score'],
         json.dumps(eval_data.get('mistakes', [])),
         eval_data.get('video_path', ''),

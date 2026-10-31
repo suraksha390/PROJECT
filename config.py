@@ -29,7 +29,7 @@ YOLO_BASE_MODEL_PATH = os.path.join(BASE_DIR, 'yolov8n.pt')
 HELMET_MODEL_PATH = os.path.join(SAVED_MODELS_DIR, 'helmet_detector.pt')
 
 # Dedicated Helmet / Headwear Detection Thresholds
-HELMET_CONF_THRESHOLD = 0.50            # Minimum confidence to accept a genuine motorcycle helmet
+HELMET_CONF_THRESHOLD = float(os.environ.get('HELMET_CONF_THRESHOLD', 0.85))  # Minimum confidence (0.85 / 85%) to accept a genuine motorcycle helmet
 NO_HELMET_CONF_THRESHOLD = 0.50         # Minimum confidence to classify uncovered head
 OTHER_HEADWEAR_CONF_THRESHOLD = 0.45    # Minimum confidence to classify cap, hat, towel, scarf
 MIN_HEAD_ROI_WIDTH = 25                 # Minimum head ROI width in pixels (smaller = Needs Review)
@@ -37,8 +37,8 @@ MIN_HEAD_ROI_HEIGHT = 25                # Minimum head ROI height in pixels (sma
 BLUR_LAPLACIAN_THRESHOLD = 35.0         # Minimum Laplacian variance (lower = blurred, Needs Review)
 
 # Video Multi-Frame Temporal Aggregation
-VIDEO_HELMET_PASS_RATIO = 0.65          # Fraction of valid rider frames required to PASS helmet rule
-VIDEO_VIOLATION_RATIO = 0.20            # Fraction of non-helmet or other_headwear frames to trigger FAIL
+VIDEO_HELMET_PASS_RATIO = 0.50          # Fraction of reliable rider frames required to PASS helmet rule
+VIDEO_VIOLATION_RATIO = 0.35            # Fraction of non-helmet or other_headwear frames to trigger FAIL
 
 # Lane Boundary Detection & Motorcycle Tracking Settings
 LANE_LINE_COLOR = (140, 180, 210)       # Light brown in OpenCV BGR (RGB ~ 210, 180, 140)
